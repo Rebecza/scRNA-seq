@@ -9,6 +9,7 @@ Install conda environment with the following file: kb_scrna.yaml. By running:
 
 `conda env create -f /home/path_to_file/kb_scrna.yaml`
 
+(For faster installation you can also install `mamba` in your base environment of conda. After this, substitue `conda` in the line above voor `mamba` and the installing of your environment becomes much quicker. `mamba` also works for installation of single packages!)
 
 ## Create the Velocity index: 
 
@@ -25,8 +26,8 @@ See for more info on the arguments: https://www.kallistobus.tools/introduction
 
 
 ## Run the alignment:
-kb-wrapper is an easy to use package that combines Kallisto and Bustools functions. I wrote a little bash script that will run the kb-wrapper with the right settings for the SORT-seq protocol in our lab this will run over all fastqs in the specified folder (with the argument -f or --fastqpath) and align for further processing with RNA-Velocity. It will also generate a log.out file, in which all the command line output is stored.
-For human genomes, one can leave the default locations for the genome and associated files ERCCs and most common reporters, are included in this index. 
+kb-wrapper is an easy to use package that combines Kallisto and Bustools functions. I wrote a little bash script that will run the kb-wrapper with the right settings for the SORT-seq protocol in our lab this will run over all fastqs in the specified folder (with the argument -f or --fastqpath) and align for further processing with RNA-Velocity. It will also generate a **log.out file**, in which all the command line output will be stored.
+For human genomes, one can leave the default locations (if you're running from our server) for the genome. The ERCC spike-ins and most common reporters, are included in this index. 
 
 **To make sure the bash script is runnable**
 
@@ -34,5 +35,6 @@ For human genomes, one can leave the default locations for the genome and associ
 
 *Run in the folder where you want the output!*
 
-Run the alignment with "running_kbvelocity.sh" and argument -f the path to folder with the .fastqs 
+Run the alignment with "running_kbvelocity.sh" and argument -f the path to folder with the .fastqs. (It is advisable to do this in a `screen`, since this process takes a while)
 `/home/path_to_file/running_kbvelocity.sh -f /home/path_to_files/data/`
+By repeating to run this step, you can check if the mapping was performed for all the fastqs in your location. It will give you a list of plates the alignment was done for, and if a plate/fastq is missing, this will be run again.

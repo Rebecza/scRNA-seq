@@ -9,7 +9,7 @@ Install conda environment with the following file: kb_scrna.yaml. By running:
 
 `conda env create -f /home/path_to_file/kb_scrna.yaml`
 
-(For faster installation you can also install `mamba` in your base environment of conda. After this, substitue `conda` in the line above voor `mamba` and the installing of your environment becomes much quicker. `mamba` also works for installation of single packages!)
+(For faster installation you can also install `mamba` in your base environment of conda. After this, substitute `conda` in the line above with `mamba` and the installing of your environment becomes much quicker. `mamba` also works for installation of single packages!)
 
 ## Create the Velocity index: 
 

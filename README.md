@@ -29,6 +29,8 @@ See for more info on the arguments: https://www.kallistobus.tools/introduction
 kb-wrapper is an easy to use package that combines Kallisto and Bustools functions. I wrote a little bash script that will run the kb-wrapper with the right settings for the SORT-seq protocol in our lab this will run over all fastqs in the specified folder (with the argument -f or --fastqpath) and align for further processing with RNA-Velocity. It will also generate a **log.out file**, in which all the command line output will be stored.
 For human genomes, one can leave the default locations (if you're running from our server) for the genome. The ERCC spike-ins and most common reporters, are included in this index. 
 
+Download the `running_kbvelocity.sh` and `1col_barcode_384.tab`, and check if the files and there locations in the top of the script are present.
+
 **To make sure the bash script is runnable**
 
 `chmod +x /home/path_to_file/running_kbvelocity.sh`

@@ -1,6 +1,6 @@
 # scRNA-seq: plate-based CEL-Seq2 preprocessing #
 
-**After mapping your data with Seq2Science (https://github.com/vanheeringen-lab/seq2science) or the KB-wrapper steps written in `../mapping/`, the files here can be used for further processing.**
+**After mapping your data with Seq2Science (https://github.com/vanheeringen-lab/seq2science) or the KB-wrapper steps written in `../mapping/`, these files can be used for further processing.**
 
 Use the `.yaml` file to install the needed environment in Conda (using `mamba` makes this process go much quicker!).
 

@@ -1,4 +1,4 @@
-read_kb_counts <- function(dir, name, barcode_file) {
+read_kb_counts <- function(dir, name, barcode_file, remove_bc=TRUE) {
   # Loading scRNA-seq count matrix
   #
   # Generates a combined scRNA-seq matrix from the ouput of 
@@ -58,20 +58,19 @@ read_kb_counts <- function(dir, name, barcode_file) {
     }
     i <- i + 1
   }
-    
-  ## Replace cell barcodes for well identifier ##
-  
-  # barcode file contains the well identifier and corresponding DNA barcode
-  plate_order <- read.table(barcode_file, sep = "\t", col.names = c("well","barcode"))
-  # generate a data.frame to match barcode and wellid 
-  cells <- data.frame("cell" = colnames(combined))
-  cells$barcode <- gsub("_.*", "", cells$cell)
-  cells$well <- plate_order$well[match(cells$barcode, plate_order$barcode)]
-  # Remove DNA barcode and add wellid 
-  cells$cell_id <- paste(gsub("^.*?_", "", cells$cell), cells$well, sep = "_")
-  cells$cell_id <- gsub("-", "_", cells$cell_id)
-  # replace cell names of the count matrix
-  colnames(combined) <- cells$cell_id
-  
+  if (remove_bc){
+    ## Replace cell barcodes for well identifier ##
+    # barcode file contains the well identifier and corresponding DNA barcode
+    plate_order <- read.table(barcode_file, sep = "\t", col.names = c("well","barcode"))
+    # generate a data.frame to match barcode and wellid 
+    cells <- data.frame("cell" = colnames(combined))
+    cells$barcode <- gsub("_.*", "", cells$cell)
+    cells$well <- plate_order$well[match(cells$barcode, plate_order$barcode)]
+    # Remove DNA barcode and add wellid 
+    cells$cell_id <- paste(gsub("^.*?_", "", cells$cell), cells$well, sep = "_")
+    cells$cell_id <- gsub("-", "_", cells$cell_id)
+    # replace cell names of the count matrix
+    colnames(combined) <- cells$cell_id
+  }
   return(combined)
 }

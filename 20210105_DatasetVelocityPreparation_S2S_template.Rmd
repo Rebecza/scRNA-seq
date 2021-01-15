@@ -106,7 +106,7 @@ The counts table is loaded along with the metadata of the cells within an Scater
 Location of the file:
 ```{r loading dataset, echo = TRUE, warning = FALSE}
 ## Splice seperated dataset:
-spliced.data.df = read_kb_counts(kb.dir, "spliced", barcode_file = barcode_file)
+spliced.data.df = read_kb_counts(kb.dir, "spliced", barcode_file = barcode_file, replace_bc=F)
 unspliced.data.df = read_kb_counts(kb.dir, "unspliced", barcode_file = barcode_file)
 
 ## Optional edits on cell names:

@@ -14,7 +14,8 @@ To keep in mind:
 #QC settings
 run.plate_qc = T
 extract_phenotypes = T
-add.spike_ins = T
+add.qc.ERCC = T
+add.qc.MT = T
 ## Storing results ##
 kb.dir <-  "/Users/tilman_work/Documents/Projects/R/testset/kallistobus"
 workdir <- "/Users/tilman_work/Documents/Projects/R/scRNA-seq"
@@ -198,7 +199,8 @@ if (extract_phenotypes) {
   identical(rownames(phenodata), colnames(spliced.data.df))
   write.csv(phenodata, paste(resultsdir,"phenodata_kbordered.csv", sep="/"))
 } else {
-  print("No phenotypes extracted from cell names")
+  phenodata <- NULL
+  print("No phenotypes extracted from cell name. Please provide your own meta data! ")
 }
 
 ```
@@ -223,10 +225,9 @@ if (run.plate_qc) {
 ```{r build SCE}
 # df -> matrix + phenodata -> SCE 
 count_matrix <- as.matrix(data.df)
-if (extract_phenotypes){
-  sce <- SingleCellExperiment(assays = list(counts = count_matrix), colData = phenodata, rowData = rownames(count_matrix))
-} else{
-  sce <- SingleCellExperiment(assays = list(counts = count_matrix), rowData = rownames(count_matrix))
+sce <- SingleCellExperiment(assays = list(counts = count_matrix), rowData = rownames(count_matrix))
+if (!is.null(phenodata)) { 
+  colData(sce) -> phenodata
 }
 ```
 
@@ -241,20 +242,34 @@ print(missing.name)
 Setting thresholds for the removal of genes too lowly expressed in too few cells.
 
 ```{r}
-MT_genes <- read.table(MT_genes_file)[,1]
 # Filtering on genes considered expressed: above a treshold for a set amount of cells:
 keep_feature <- rowSums(counts(sce) > gene_tresh) > amount_cells_expr
 sce_filt <- sce[keep_feature,]
+control_features <- list()
 # Adding spike-in information:
-isSpike(sce_filt, "ERCC") <- grepl("^ERCC-", rownames(sce_filt))
-isSpike(sce_filt, "MT") <- rownames(sce_filt)[rownames(sce_filt) %in% MT_genes]
+if (add.qc.MT) {
+  MT_genes <- read.table(MT_genes_file)[,1]
+  isSpike(sce_filt, "MT") <- rownames(sce_filt)[rownames(sce_filt) %in% MT_genes]
+  control_features[["MT"]] <- isSpike(sce_filt, "MT")
+}
+if (add.qc.ERCC) {
+  isSpike(sce_filt, "ERCC") <- grepl("^ERCC-", rownames(sce_filt))
+    control_features[["ERCC"]] <- isSpike(sce_filt, "ERCC")
+}
 # Calculate the quality metrics:
 sce_filt <- calculateQCMetrics(
-  sce_filt, feature_controls = list(
-    ERCC = isSpike(sce_filt, "ERCC"), 
-    MT = isSpike(sce_filt, "MT")
-    )
-  )
+  sce_filt, feature_controls = control_features )
+
+# Removal of cells causing a warning:
+if (add.qc.MT && add.qc.ERCC) {
+  NaN_cells <- unique(c(colnames(sce_filt)[sce_filt$pct_counts_ERCC == "NaN"], colnames(sce_filt)[sce_filt$pct_counts_MT == "NaN"]))
+} else if (add.qc.MT) {
+  Nan_cells <- c(colnames(sce_filt)[sce_filt$pct_counts_MT == "NaN"])
+} else if (add.qc.ERCC) {
+  Nan_cells <- c(colnames(sce_filt)[sce_filt$pct_counts_MT == "ERCC"])
+}
+sce_filt <- sce_filt[,!colnames(counts(sce_filt)) %in% NaN_cells]
+  
 ```
 
 Genes that had less than `r amount_cells_expr` cells with an expression of less than `r gene_tresh`.
@@ -287,22 +302,25 @@ Spike-ins and mitochondrial expression are used as another measure for quality o
 A higher percentage of spike-in indicates a lower amount of endogenous genes found in the cell or in case of mitochondrial genes, a cell that was apoptotic. Also cells that are smaller will have relatively more spike-in allocated reads, and some cell types might have higher numbers of mitochondria, which is important to consider setting this boundary.
 
 ```{r}
-# Removal of cells causing a warning:
-NaN_cells <- unique(c(colnames(sce_filt)[sce_filt$pct_counts_ERCC == "NaN"], colnames(sce_filt)[sce_filt$pct_counts_MT == "NaN"]))
-sce_filt <- sce_filt[,!colnames(counts(sce_filt)) %in% NaN_cells]
 # Using Scater to plot percentages of spikes
-plotColData(sce_filt,
+# Only works if meta data available.
+plot.list = list(
+  p1 = plotColData(sce_filt, y = "total_counts", x = "Library"),
+  p2 = plotColData(sce_filt, y = "total_features_by_counts", x = "Library")
+  )
+# Add ERCC to multiplot if present
+if (add.qc.ERCC) {
+  plot.list[['p3']] <- plotColData(sce_filt,
             x = "total_features_by_counts", 
             y = "pct_counts_MT", colour = lab_col)
-plotColData(sce_filt,
+  plot.list[['p3']] <- p3
+}
+if (add.qc.MT) {
+  plot.list[['p4']] <- plotColData(sce_filt,
             x = "total_features_by_counts", 
             y = "pct_counts_ERCC", colour = lab_col)
-multiplot(
-  plotColData(sce_filt, y="total_counts", x="Library"),
-  plotColData(sce_filt, y="total_features_by_counts", x="Library"),
-  plotColData(sce_filt, y="pct_counts_ERCC", x="Library"),
-  plotColData(sce_filt, y="pct_counts_MT", x="Library"),
-  cols=2)
+}
+multiplot( plotlist = plot.list, cols=2)
 
 ```
 
@@ -319,26 +337,23 @@ Using manual thresholds for filtering out the outliers in the dataset and using 
 ## Manually set thresholds for filtering of the cells:
 #---------------------------
 # Filter library-size and the total amount of genes on the thresholds shown above in the histogram.
-filter_by_expr_features <- sce_filt$total_features_by_counts >= total_feat_tresh
-filter_by_total_counts <- sce_filt$total_counts >= total_counts_tresh
-filter_by_ercc <- sce_filt$pct_counts_ERCC < ERCC_pct_max
-filter_by_mt <- sce_filt$pct_counts_MT < mt_pct_max
+filters <- list()
+filters[["filter_by_expr_features"]] <- sce_filt$total_features_by_counts >= total_feat_tresh
+filters[["filter_by_total_counts"]] <- sce_filt$total_counts >= total_counts_tresh
+if (add.qc.ERCC) {
+  filters[["filter_by_ercc"]] <- sce_filt$pct_counts_ERCC < ERCC_pct_max
+  table(filter_by_ercc)
+}
+if (add.qc.MT) {
+  filters[["filter_by_mt"]] <- sce_filt$pct_counts_MT < mt_pct_max
+  table(filter_by_mt)
 
-sce_filt$use <- (filter_by_expr_features 
-         & 
-           filter_by_total_counts 
-         &
-           filter_by_ercc 
-         & 
-           filter_by_mt
-           )
-
+}
+#Combine filtered logis 
+sce_filt$use <- Reduce("&", filters)
 # Amount of cells removed per filtering:
 table(filter_by_expr_features)
 table(filter_by_total_counts)
-table(filter_by_ercc)
-table(filter_by_mt)
-
 # Result of manual filtering with set tresholds
 # TRUE are considered healthy cells:
 table(sce_filt$use)

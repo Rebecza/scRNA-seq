@@ -12,9 +12,9 @@ To keep in mind:
 
 ```{r}
 #QC settings
-run.plate_qc = F
-
-
+run.plate_qc = T
+extract_phenotypes = T
+add.spike_ins = T
 ## Storing results ##
 kb.dir <-  "/Users/tilman_work/Documents/Projects/R/testset/kallistobus"
 workdir <- "/Users/tilman_work/Documents/Projects/R/scRNA-seq"
@@ -192,10 +192,15 @@ print(resultsdir)
 
 ```{r phenotable}
 ## Setting up the phenotable ##
-source(paste0(workdir,"/src/get_pheno_data.R"))
-pheno_ordered <- get_pheno_data(data.df = data.df, combined_variables_to_id = combined_variables_to_id, plate_variables= plate_variables)
-identical(rownames(pheno_ordered), colnames(spliced.data.df))
-write.csv(phenodata, paste(resultsdir,"phenodata_kbordered.csv", sep="/"))
+if (extract_phenotypes) {
+  source(paste0(workdir,"/src/get_pheno_data.R"))
+  phenodata <- get_pheno_data(data.df = data.df, combined_variables_to_id = combined_variables_to_id, plate_variables= plate_variables)
+  identical(rownames(phenodata), colnames(spliced.data.df))
+  write.csv(phenodata, paste(resultsdir,"phenodata_kbordered.csv", sep="/"))
+} else {
+  print("No phenotypes extracted from cell names")
+}
+
 ```
 
 ## Plate Overviews
@@ -218,7 +223,11 @@ if (run.plate_qc) {
 ```{r build SCE}
 # df -> matrix + phenodata -> SCE 
 count_matrix <- as.matrix(data.df)
-sce <- SingleCellExperiment(assays = list(counts = count_matrix), colData = pheno_ordered, rowData = rownames(count_matrix))
+if (extract_phenotypes){
+  sce <- SingleCellExperiment(assays = list(counts = count_matrix), colData = phenodata, rowData = rownames(count_matrix))
+} else{
+  sce <- SingleCellExperiment(assays = list(counts = count_matrix), rowData = rownames(count_matrix))
+}
 ```
 
 ```{r filtering empty entries, echo = FALSE}
@@ -233,15 +242,12 @@ Setting thresholds for the removal of genes too lowly expressed in too few cells
 
 ```{r}
 MT_genes <- read.table(MT_genes_file)[,1]
-
 # Filtering on genes considered expressed: above a treshold for a set amount of cells:
 keep_feature <- rowSums(counts(sce) > gene_tresh) > amount_cells_expr
 sce_filt <- sce[keep_feature,]
-
 # Adding spike-in information:
 isSpike(sce_filt, "ERCC") <- grepl("^ERCC-", rownames(sce_filt))
 isSpike(sce_filt, "MT") <- rownames(sce_filt)[rownames(sce_filt) %in% MT_genes]
-
 # Calculate the quality metrics:
 sce_filt <- calculateQCMetrics(
   sce_filt, feature_controls = list(
@@ -284,16 +290,13 @@ A higher percentage of spike-in indicates a lower amount of endogenous genes fou
 # Removal of cells causing a warning:
 NaN_cells <- unique(c(colnames(sce_filt)[sce_filt$pct_counts_ERCC == "NaN"], colnames(sce_filt)[sce_filt$pct_counts_MT == "NaN"]))
 sce_filt <- sce_filt[,!colnames(counts(sce_filt)) %in% NaN_cells]
-
 # Using Scater to plot percentages of spikes
 plotColData(sce_filt,
             x = "total_features_by_counts", 
             y = "pct_counts_MT", colour = lab_col)
-
 plotColData(sce_filt,
             x = "total_features_by_counts", 
             y = "pct_counts_ERCC", colour = lab_col)
-
 multiplot(
   plotColData(sce_filt, y="total_counts", x="Library"),
   plotColData(sce_filt, y="total_features_by_counts", x="Library"),

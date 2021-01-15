@@ -45,7 +45,7 @@ subset_id = ""
 # Select the type of filtering: keep cells with the substring (set "in") or remove (set "out")
 # if NO filtering is wanted, leave empty (set "" or "no")
 filtering = "no"
-
+n_bc = 384
 ## Seurat Normalization, HVG selection (vst) & Scaling (and Regression) ##
 nHVG = 2000
 # Regression performed on the following variables:
@@ -69,7 +69,8 @@ explore_violin = c("SOX2", "GAPDH")
 ## Location of scripts ##
 source(paste0(workdir,"/src/read_kb_dataset_s2s.R"))
 source(paste0(workdir,"/src/qc_umis_384plot.R"))
-source(paste0(workdir,"/src/qc_ercc_384plot.R"))
+source(paste0(workdir,"/src/plate_qc.R"))
+
 ```
 
 ```{r "setup"}
@@ -106,7 +107,7 @@ The counts table is loaded along with the metadata of the cells within an Scater
 Location of the file:
 ```{r loading dataset, echo = TRUE, warning = FALSE}
 ## Splice seperated dataset:
-spliced.data.df = read_kb_counts(kb.dir, "spliced", barcode_file = barcode_file, replace_bc=F)
+spliced.data.df = read_kb_counts(kb.dir, "spliced", barcode_file = barcode_file)
 unspliced.data.df = read_kb_counts(kb.dir, "unspliced", barcode_file = barcode_file)
 
 ## Optional edits on cell names:
@@ -181,25 +182,15 @@ subset_cells <- intersect(colnames(spliced.data.df), colnames(unspliced.data.df)
 unspliced.data.df <- unspliced.data.df[,subset_cells]
 
 # no. of plates:
-length(colnames(spliced.data.df))/384
+length(colnames(spliced.data.df))/n_bc
 print(resultsdir)
 ```
 
 
 ```{r phenotable}
 ## Setting up the phenotable ##
-phenodata <- data.frame(row.names=colnames(data.df))
-phenodata$names <- row.names(phenodata)
-phenodata <- separate(phenodata, col = "names", into = plate_variables, sep = "_")
-
-## Replace by tinyverse using the columns mentioned with combined_variables_to_id
-phenodata$combined_id <- apply(phenodata[,combined_variables_to_id], 1, paste, collapse = "_")
-
-# Only take the entries that are matchable with the counttable entries:
-pheno_matched <- phenodata[rownames(phenodata) %in% colnames(data.df),]
-
-# Matching phenodata with the dataset ordering
-pheno_ordered <- pheno_matched[match(colnames(data.df),rownames(pheno_matched)),]
+source(paste0(workdir,"/src/get_pheno_data.R"))
+pheno_ordered <- get_pheno_data(data.df = data.df, combined_variables_to_id = combined_variables_to_id, plate_variables= plate_variables)
 identical(rownames(pheno_ordered), colnames(spliced.data.df))
 write.csv(phenodata, paste(resultsdir,"phenodata_kbordered.csv", sep="/"))
 ```
@@ -210,38 +201,9 @@ Running QC over the plates: are there
 
 ```{r}
 ## Running plate QC: are there certain patterns?
-
+out.file <- paste(resultsdir,"PlateDiag_lndscp.pdf",sep="/")
+plate_qc(data.df = data.df,barcode_file = barcode_file, spliced.data.df = spliced.data.df, out.file = out.file )
 # # Make a list of cell-names compatable with the excel file: plate#_A1, plate#_A2 etc.
- plate_order <- read.table(barcode_file, sep = "\t", col.names = c("well","barcode"))
-#
-# # Make a vector with all plate numbers
- platenrs <- unique(gsub("([^_]*)$", "", colnames(data.df)))
- pdf(paste(resultsdir,"PlateDiag_lndscp.pdf",sep="/"), paper = "USr")
-# # settings for the plate diagnostics pdf
- par(mfrow=c(2,2), mar = c(5,4,4,2) + 0.1, cex.main = 1)
-#
-# # Iterate over all plates, order cells in the order of visualization
- for (plate in platenrs){
-#   # use the order of cells from te barcode file (this is A1, A2, A3, etc to P24)
-   primer_order <- paste(plate, plate_order$well, sep="")
-#
-#   # if wells are missing on the plate, these need to be added and given a value of 0
-   missing_wells <- primer_order[!primer_order %in% colnames(spliced.data.df)]
-   cols_to_add <- data.frame(matrix(ncol = length(missing_wells), nrow = length(rownames(spliced.data.df))))
-   colnames(cols_to_add) <- missing_wells
-   cols_to_add[is.na(cols_to_add)] <- 0
-   diag_plate <- cbind(spliced.data.df[,grep(plate, colnames(spliced.data.df))], cols_to_add)
-#   # phenodata contains same cellid entry + rowname as used in dataset
-   cells_order <- colnames(diag_plate[,match(primer_order, colnames(diag_plate))])
-#
-#   # match dataset cells order with wells in the visualization
-   tmp <- as.matrix(diag_plate[,cells_order])
-   QC_umis_384plot(tmp, paste(plate, "UMI_QC", sep = "_"))
-   QC_ERCC_384plot(tmp[grep("^ERCC", rownames(diag_plate)),], paste(plate, "ERCC_QC", sep = "_"))
-#
-   rm(tmp)
- }
- dev.off()
 ```
 
 #### Creating a SingleCellExperiment object for confounder check

@@ -11,6 +11,9 @@ To keep in mind:
 - Make sure the plates to combine all have the same amount of "_" separated fields in their folder names. These fields will be used to set up the phenodata columns. - The Combined ID per plate, will be used for labelling in figures.
 
 ```{r}
+#QC settings
+run.plate_qc = F
+
 
 ## Storing results ##
 kb.dir <-  "/Users/tilman_work/Documents/Projects/R/testset/kallistobus"
@@ -200,10 +203,14 @@ write.csv(phenodata, paste(resultsdir,"phenodata_kbordered.csv", sep="/"))
 Running QC over the plates: are there 
 
 ```{r}
-## Running plate QC: are there certain patterns?
-out.file <- paste(resultsdir,"PlateDiag_lndscp.pdf",sep="/")
-plate_qc(data.df = data.df,barcode_file = barcode_file, spliced.data.df = spliced.data.df, out.file = out.file )
-# # Make a list of cell-names compatable with the excel file: plate#_A1, plate#_A2 etc.
+if (run.plate_qc) {
+  ## Running plate QC: are there certain patterns?
+  out.file <- paste(resultsdir,"PlateDiag_lndscp.pdf",sep="/")
+  plate_qc(data.df = data.df,barcode_file = barcode_file, spliced.data.df = spliced.data.df, out.file = out.file )
+  # # Make a list of cell-names compatable with the excel file: plate#_A1, plate#_A2 etc.
+} else {
+  print("No plate QC performed!")
+}
 ```
 
 #### Creating a SingleCellExperiment object for confounder check

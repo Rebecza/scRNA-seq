@@ -266,7 +266,7 @@ if (add.qc.MT && add.qc.ERCC) {
 } else if (add.qc.MT) {
   NaN_cells <- c(colnames(sce_filt)[sce_filt$pct_counts_MT == "NaN"])
 } else if (add.qc.ERCC) {
-  NaN_cells <- c(colnames(sce_filt)[sce_filt$pct_counts_MT == "Nan"])
+  NaN_cells <- c(colnames(sce_filt)[sce_filt$pct_counts_ERCC == "Nan"])
 }
 sce_filt <- sce_filt[,!colnames(counts(sce_filt)) %in% NaN_cells]
   

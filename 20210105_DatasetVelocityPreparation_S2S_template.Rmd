@@ -14,7 +14,7 @@ To keep in mind:
 #QC settings
 run.plate_qc = T
 extract_phenotypes = T
-add.qc.ERCC = T
+add.qc.ERCC = F
 add.qc.MT = T
 ## Storing results ##
 kb.dir <-  "/Users/tilman_work/Documents/Projects/R/testset/kallistobus"
@@ -264,9 +264,9 @@ sce_filt <- calculateQCMetrics(
 if (add.qc.MT && add.qc.ERCC) {
   NaN_cells <- unique(c(colnames(sce_filt)[sce_filt$pct_counts_ERCC == "NaN"], colnames(sce_filt)[sce_filt$pct_counts_MT == "NaN"]))
 } else if (add.qc.MT) {
-  Nan_cells <- c(colnames(sce_filt)[sce_filt$pct_counts_MT == "NaN"])
+  NaN_cells <- c(colnames(sce_filt)[sce_filt$pct_counts_MT == "NaN"])
 } else if (add.qc.ERCC) {
-  Nan_cells <- c(colnames(sce_filt)[sce_filt$pct_counts_MT == "ERCC"])
+  NaN_cells <- c(colnames(sce_filt)[sce_filt$pct_counts_MT == "Nan"])
 }
 sce_filt <- sce_filt[,!colnames(counts(sce_filt)) %in% NaN_cells]
   
@@ -312,12 +312,12 @@ plot.list = list(
 if (add.qc.ERCC) {
   plot.list[['p3']] <- plotColData(sce_filt,
             x = "total_features_by_counts", 
-            y = "pct_counts_MT", colour = lab_col)
+            y = "pct_counts_ERCC", colour = lab_col)
 }
 if (add.qc.MT) {
   plot.list[['p4']] <- plotColData(sce_filt,
             x = "total_features_by_counts", 
-            y = "pct_counts_ERCC", colour = lab_col)
+            y = "pct_counts_MT", colour = lab_col)
 }
 multiplot( plotlist = plot.list, cols=2)
 
@@ -343,10 +343,14 @@ names(filters) <- base.filters
 filters[["filter_by_expr_features"]] <- sce_filt$total_features_by_counts >= total_feat_tresh
 filters[["filter_by_total_counts"]] <- sce_filt$total_counts >= total_counts_tresh
 #Optional filter conditions
-ifelse(add.qc.ERCC, filters[["filter_by_ercc"]] <- sce_filt$pct_counts_ERCC < ERCC_pct_max, NULL)
-ifelse(add.qc.MT, filters[["filter_by_mt"]] <- sce_filt$pct_counts_MT < mt_pct_max, NULL)
+if (add.qc.ERCC) {
+  filters[["filter_by_ercc"]] <- sce_filt$pct_counts_ERCC < ERCC_pct_max
+}
+if (add.qc.MT) {
+  filters[["filter_by_mt"]] <- sce_filt$pct_counts_MT < mt_pct_max
+}
 #Reduce filtered logis
-sce_filt$use <- Reduce("&", filters)
+sce_filt$use <- Reduce("&", Filter(Negate(is.null), filters))
 # Amount of cells removed per filtering:
 table(filters[["filter_by_expr_features"]])
 table(filters[["filter_by_total_counts"]])
@@ -431,7 +435,6 @@ if(add.qc.MT) {
               x = "total_features_by_counts", 
               y = "pct_counts_MT", colour = lab_col)
 }
-dev.off()
 #Create ERCC plot before and after filltering
 if (add.qc.ERCC) {
   pdf(paste(resultsdir,"ERCC_before+aftercellsFiltering.pdf", sep="/"))
@@ -662,25 +665,34 @@ genes_use <- rownames(sce_endo)
 
 sce_us <- SingleCellExperiment(assays = list(counts = as.matrix(unspliced.data.df)), colData = pheno_matched, rowData = rownames(unspliced.data.df))
 control_features_us <- vector("list", 0) 
+control_features_us_match <- vector("list", 0) 
+
+# Dataset after filtering:
+sce_usmatch <- sce_us[genes_use,cells_use]
+
 # Adding spike-in information:
 if (add.qc.MT) {
   isSpike(sce_us, "MT") <- grepl("^MT-", rownames(sce_us))
   control_features_us[["MT"]] <- isSpike(sce_us, "MT")
+  #matched sce object
+  isSpike(sce_usmatch, "MT") <- grepl("^MT-", rownames(sce_usmatch))
+  control_features_us_match[["MT"]] <- isSpike(sce_usmatch, "MT")
 }
 if (add.qc.ERCC) {
   isSpike(sce_us, "ERCC") <- grepl("^ERCC-", rownames(sce_us))
   control_features_us[["ERCC"]] <- isSpike(sce_us, "ERCC")
+  #matched sce object
+  isSpike(sce_usmatch, "ERCC") <- grepl("^ERCC-", rownames(sce_usmatch))
+  control_features_us_match[["ERCC"]] <- isSpike(sce_usmatch, "ERCC")
 }
 # Calculate the quality metrics:
-# Dataset after filtering:
-sce_usmatch <- sce_us[genes_use,cells_use]
 # Calculate the quality metrics:
 sce_us <- calculateQCMetrics(
   sce_us, feature_controls = control_features_us
     )
   
 sce_usmatch <- calculateQCMetrics(
-  sce_usmatch, feature_controls = control_features_us
+  sce_usmatch, feature_controls = control_features_us_match
   )
 # Arbitrary thresholds:
 # Looking at the total number of RNA molecules per sample

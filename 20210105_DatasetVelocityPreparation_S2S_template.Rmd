@@ -195,10 +195,13 @@ print(resultsdir)
 ## Setting up the phenotable ##
 if (extract_phenotypes) {
   source(paste0(workdir,"/src/get_pheno_data.R"))
-  phenodata <- get_pheno_data(data.df = data.df, combined_variables_to_id = combined_variables_to_id, plate_variables= plate_variables)
+  phenodata_all <- get_pheno_data(data.df = data.df, combined_variables_to_id = combined_variables_to_id, plate_variables= plate_variables)
+  phenodata <- phenodata_all[[1]]
+  pheno_matched <- phenodata_all[[2]]
   identical(rownames(phenodata), colnames(spliced.data.df))
   write.csv(phenodata, paste(resultsdir,"phenodata_kbordered.csv", sep="/"))
 } else {
+  #The user supplies phenotdata (at least library info) via a tab/csv delimited file. 
   phenodata <- NULL
   print("No phenotypes extracted from cell name. Please provide your own meta data! ")
 }
@@ -225,10 +228,7 @@ if (run.plate_qc) {
 ```{r build SCE}
 # df -> matrix + phenodata -> SCE 
 count_matrix <- as.matrix(data.df)
-sce <- SingleCellExperiment(assays = list(counts = count_matrix), rowData = rownames(count_matrix))
-if (!is.null(phenodata)) { 
-  colData(sce) -> phenodata
-}
+sce <- SingleCellExperiment(assays = list(counts = count_matrix), colData = phenodata, rowData = rownames(count_matrix))
 ```
 
 ```{r filtering empty entries, echo = FALSE}
@@ -243,9 +243,9 @@ Setting thresholds for the removal of genes too lowly expressed in too few cells
 
 ```{r}
 # Filtering on genes considered expressed: above a treshold for a set amount of cells:
+control_features <- vector("list", 0) 
 keep_feature <- rowSums(counts(sce) > gene_tresh) > amount_cells_expr
 sce_filt <- sce[keep_feature,]
-control_features <- list()
 # Adding spike-in information:
 if (add.qc.MT) {
   MT_genes <- read.table(MT_genes_file)[,1]
@@ -313,7 +313,6 @@ if (add.qc.ERCC) {
   plot.list[['p3']] <- plotColData(sce_filt,
             x = "total_features_by_counts", 
             y = "pct_counts_MT", colour = lab_col)
-  plot.list[['p3']] <- p3
 }
 if (add.qc.MT) {
   plot.list[['p4']] <- plotColData(sce_filt,
@@ -337,23 +336,22 @@ Using manual thresholds for filtering out the outliers in the dataset and using 
 ## Manually set thresholds for filtering of the cells:
 #---------------------------
 # Filter library-size and the total amount of genes on the thresholds shown above in the histogram.
-filters <- list()
+base.filters <- c("filter_by_expr_features","filter_by_total_counts", "filter_by_ercc", "filter_by_mt")
+filters <- vector("list",length(base.filters))
+names(filters) <- base.filters
+#Add base filters
 filters[["filter_by_expr_features"]] <- sce_filt$total_features_by_counts >= total_feat_tresh
 filters[["filter_by_total_counts"]] <- sce_filt$total_counts >= total_counts_tresh
-if (add.qc.ERCC) {
-  filters[["filter_by_ercc"]] <- sce_filt$pct_counts_ERCC < ERCC_pct_max
-  table(filter_by_ercc)
-}
-if (add.qc.MT) {
-  filters[["filter_by_mt"]] <- sce_filt$pct_counts_MT < mt_pct_max
-  table(filter_by_mt)
-
-}
-#Combine filtered logis 
+#Optional filter conditions
+ifelse(add.qc.ERCC, filters[["filter_by_ercc"]] <- sce_filt$pct_counts_ERCC < ERCC_pct_max, NULL)
+ifelse(add.qc.MT, filters[["filter_by_mt"]] <- sce_filt$pct_counts_MT < mt_pct_max, NULL)
+#Reduce filtered logis
 sce_filt$use <- Reduce("&", filters)
 # Amount of cells removed per filtering:
-table(filter_by_expr_features)
-table(filter_by_total_counts)
+table(filters[["filter_by_expr_features"]])
+table(filters[["filter_by_total_counts"]])
+table(filters[["filter_by_ercc"]])
+table(filters[["filter_by_mt"]])
 # Result of manual filtering with set tresholds
 # TRUE are considered healthy cells:
 table(sce_filt$use)
@@ -421,24 +419,33 @@ abline(v = total_counts_tresh, col = "red")
 hist(sce_qc$total_features_by_counts, breaks = 100)
 abline(v= total_feat_tresh, col = "red")
 dev.off()
-
-pdf(paste(resultsdir,paste0(result_descript,"MT+ERCC_before+aftercellsFiltering.pdf"), sep="/"))
-par(mfrow=c(2,2))
-plotColData(sce_filt,
-            x = "total_features_by_counts", 
-            y = "pct_counts_MT", colour = lab_col)
-
-plotColData(sce_filt,
-            x = "total_features_by_counts", 
-            y = "pct_counts_ERCC", colour = lab_col)
-plotColData(sce_qc,
-            x = "total_features_by_counts", 
-            y = "pct_counts_MT", colour = lab_col)
-
-plotColData(sce_qc,
-            x = "total_features_by_counts", 
-            y = "pct_counts_ERCC", colour = lab_col)
+#Create MT plot before and after filtering
+if(add.qc.MT) {
+  pdf(paste(resultsdir,"MT_before+aftercellsFiltering.pdf", sep="/"))
+  par(mfrow=c(2,2))
+  plotColData(sce_filt,
+              x = "total_features_by_counts", 
+              y = "pct_counts_MT", colour = lab_col)
+  
+  plotColData(sce_qc,
+              x = "total_features_by_counts", 
+              y = "pct_counts_MT", colour = lab_col)
+}
 dev.off()
+#Create ERCC plot before and after filltering
+if (add.qc.ERCC) {
+  pdf(paste(resultsdir,"ERCC_before+aftercellsFiltering.pdf", sep="/"))
+  par(mfrow=c(2,2))
+  
+  plotColData(sce_filt,
+              x = "total_features_by_counts", 
+              y = "pct_counts_ERCC", colour = lab_col)
+  plotColData(sce_qc,
+              x = "total_features_by_counts", 
+              y = "pct_counts_ERCC", colour = lab_col)
+}
+dev.off()
+
 
 ``` 
 
@@ -498,6 +505,7 @@ plotPCA(tmp,
 # One can also run tSNE in similar ways with Scater.
 rm(tmp)
 # The logcounts_raw is not enough to account for the technical factors between the cells.
+##Works until here
 ```
 
 ## Normalization in Seurat
@@ -569,7 +577,7 @@ saveRDS(seuset, paste(resultsdir,"seuset_qc+norm.rds",sep="/"))
 
 ```{r seurat objects to sce} 
 # Only take the entries that are matchable with the counttable entries:
-filtered_cells <- intersect(rownames(pheno_ordered), colnames(seuset@assays$sf@data))
+filtered_cells <- intersect(rownames(phenodata), colnames(seuset@assays$sf@data))
 pheno_matchedseuset <- phenodata[filtered_cells,]
 pheno_orderedseuset <- pheno_matchedseuset[match(colnames(seuset@assays$sf@data),rownames(pheno_matchedseuset)),]
 

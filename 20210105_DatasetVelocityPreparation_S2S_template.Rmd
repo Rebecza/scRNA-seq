@@ -661,26 +661,26 @@ cells_use <- colnames(sce_endo)
 genes_use <- rownames(sce_endo)
 
 sce_us <- SingleCellExperiment(assays = list(counts = as.matrix(unspliced.data.df)), colData = pheno_matched, rowData = rownames(unspliced.data.df))
-
+control_features_us <- vector("list", 0) 
 # Adding spike-in information:
-isSpike(sce_us, "ERCC") <- grepl("^ERCC-", rownames(sce_us))
-isSpike(sce_us, "MT") <- grepl("^MT-", rownames(sce_us))
-
+if (add.qc.MT) {
+  isSpike(sce_us, "MT") <- grepl("^MT-", rownames(sce_us))
+  control_features_us[["MT"]] <- isSpike(sce_us, "MT")
+}
+if (add.qc.ERCC) {
+  isSpike(sce_us, "ERCC") <- grepl("^ERCC-", rownames(sce_us))
+  control_features_us[["ERCC"]] <- isSpike(sce_us, "ERCC")
+}
+# Calculate the quality metrics:
 # Dataset after filtering:
 sce_usmatch <- sce_us[genes_use,cells_use]
-
 # Calculate the quality metrics:
 sce_us <- calculateQCMetrics(
-  sce_us, feature_controls = list(
-    ERCC = isSpike(sce_us, "ERCC"), 
-    MT = isSpike(sce_us, "MT")
+  sce_us, feature_controls = control_features_us
     )
-  )
+  
 sce_usmatch <- calculateQCMetrics(
-  sce_usmatch, feature_controls = list(
-    ERCC = isSpike(sce_usmatch, "ERCC"), 
-    MT = isSpike(sce_usmatch, "MT")
-    )
+  sce_usmatch, feature_controls = control_features_us
   )
 # Arbitrary thresholds:
 # Looking at the total number of RNA molecules per sample

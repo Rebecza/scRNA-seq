@@ -68,6 +68,5 @@ plate_qc <- function(data.df = NULL, spliced.data.df=NULL, barcode_file = NULL, 
     #
     rm(tmp)
   }
-  dev.off()
 }
 

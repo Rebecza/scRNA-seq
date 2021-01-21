@@ -47,10 +47,8 @@ params:
   # Marker genes for violin plots
   explore_violin: !r c("SOX2", "GAPDH")
   vars_to_regress: !r c("nCount_sf", "nFeature_sf") # Regression performed on the following variables:"
-  
-  
 ---
-    
+
     ## *Setting Parameters:* 
     To keep in mind: 
     - Make sure the plates to combine all have the same amount of "_" separated fields in their folder names. These fields will be used to set up the phenodata columns. - The Combined ID per plate, will be used for labelling in figures.

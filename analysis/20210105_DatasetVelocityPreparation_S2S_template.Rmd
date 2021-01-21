@@ -1,7 +1,6 @@
 ---
 title: "SORT-seq dataset with velocity preparations"
 output:
-  pdf_document: default
   html_document:
     df_print: paged
 params:
@@ -37,7 +36,7 @@ params:
   #QC settings
   run.plate_qc: TRUE
   extract_phenotypes: TRUE
-  add.qc.ERCC: FALSE
+  add.qc.ERCC: TRUE
   add.qc.MT: TRUE
   plate_variables: !r c("Genome","Method", "Lineage", "Timepoint", "Replicate" , "Library", "Well")  # Unique combined ID per plate, for visualization purposes
   combined_variables_to_id: !r c("Method", "Lineage", "Timepoint", "Library")

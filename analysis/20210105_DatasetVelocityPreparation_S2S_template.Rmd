@@ -39,6 +39,16 @@ params:
   extract_phenotypes: TRUE
   add.qc.ERCC: FALSE
   add.qc.MT: TRUE
+  plate_variables: !r c("Genome","Method", "Lineage", "Timepoint", "Replicate" , "Library", "Well")  # Unique combined ID per plate, for visualization purposes
+  combined_variables_to_id: !r c("Method", "Lineage", "Timepoint", "Library")
+  pcs_for_overview: !r c(10, 20, 30, 40, 50) # PCs used for different UMAP representations
+  #Checking variability explained by confounding factors
+  confounders_to_test: !r c("Library", "Lineage","Timepoint")
+  # Marker genes for violin plots
+  explore_violin: !r c("SOX2", "GAPDH")
+  vars_to_regress: !r c("nCount_sf", "nFeature_sf") # Regression performed on the following variables:"
+  
+  
 ---
     
     ## *Setting Parameters:* 
@@ -68,14 +78,14 @@ params:
     source(here::here("./src/plate_qc.R"))
     source(here::here("./src/get_pheno_data.R"))
     # options(stringsAsFactors = FALSE)
-    plate_variables = c("Genome","Method", "Lineage", "Timepoint", "Replicate" , "Library", "Well")  # Unique combined ID per plate, for visualization purposes
-    combined_variables_to_id = c("Method", "Lineage", "Timepoint", "Library")
-    pcs_for_overview = c(10, 20, 30, 40, 50) # PCs used for different UMAP representations
+    # plate_variables = c("Genome","Method", "Lineage", "Timepoint", "Replicate" , "Library", "Well")  # Unique combined ID per plate, for visualization purposes
+    # combined_variables_to_id = c("Method", "Lineage", "Timepoint", "Library")
+    # pcs_for_overview = c(10, 20, 30, 40, 50) # PCs used for different UMAP representations
     #Checking variability explained by confounding factors
-    confounders_to_test = c("Library", "Lineage","Timepoint")
+    # confounders_to_test = c("Library", "Lineage","Timepoint")
     # Marker genes for violin plots
-    explore_violin = c("SOX2", "GAPDH")
-    vars_to_regress = c("nCount_sf", "nFeature_sf") # Regression performed on the following variables:"
+    # explore_violin = c("SOX2", "GAPDH")
+    # vars_to_regress = c("nCount_sf", "nFeature_sf") # Regression performed on the following variables:"
     ```
 ## *Cleaning up the counts table, for subset: `r params$subset_id`*
 
@@ -104,7 +114,7 @@ if (params$old_col_pattern != ""){
 
 ```{r}
 # if regression will be performed, this is included in the folder name.
-if (!is.null(vars_to_regress)){
+if (!is.null(params$vars_to_regress)){
 result_descript <- paste(params$result_descript, "regressed", sep = "_")  
 }
 
@@ -165,7 +175,7 @@ print(resultsdir)
 ```{r phenotable}
 ## Setting up the phenotable ##
 if (params$extract_phenotypes) {
-  phenodata_all <- get_pheno_data(data.df = data.df, combined_variables_to_id = combined_variables_to_id, plate_variables= plate_variables)
+  phenodata_all <- get_pheno_data(data.df = data.df, combined_variables_to_id = params$combined_variables_to_id, plate_variables= params$plate_variables)
   phenodata <- phenodata_all[[1]]
   pheno_matched <- phenodata_all[[2]]
   identical(rownames(phenodata), colnames(spliced.data.df))
@@ -487,7 +497,7 @@ Make the seurat object, 'seuset'.
 In this step you could filter the cells again, these however already have been filtered before in 'table clean-up', where the genes were taken that have >2 cells that have an expression >1.
 
 ```{r create seurat object}
-seuset <- CreateSeuratObject(counts = counts(sce_endo), assay = "sf", meta.data = as.data.frame(colData(sce_endo)[,1:(length(plate_variables)+1)]))
+seuset <- CreateSeuratObject(counts = counts(sce_endo), assay = "sf", meta.data = as.data.frame(colData(sce_endo)[,1:(length(params$plate_variables)+1)]))
 ```
 
 ```{r}
@@ -504,7 +514,7 @@ VlnPlot(
 )
 VlnPlot(
   object = seuset, 
-    features = explore_violin, 
+    features = params$explore_violin, 
     group.by = params$lab_col
 )
 FeatureScatter(
@@ -536,7 +546,7 @@ VlnPlot(
 )
 VlnPlot(
   object = seuset, 
-    features = explore_violin, 
+    features = params$explore_violin, 
     group.by = params$lab_col
 )
 FeatureScatter(
@@ -573,7 +583,7 @@ sce_seunorm <- calculateQCMetrics(
 
 ```{r check confounders in raw dataset}
 
-explanatory_variables <- as.factor(c(confounders_to_test, "total_features_by_counts", "total_counts"))
+explanatory_variables <- as.factor(c(params$confounders_to_test, "total_features_by_counts", "total_counts"))
 #explanatory_variables_seu <- c("total_features_by_counts", "total_counts", confounders_to_test)
 
 # This function and visualization performs a PCA analysis in the data object and checks to what extend the variables that are put in, are explaining the variance.
@@ -755,12 +765,12 @@ seu[["sf"]]@var.features[1:10]
 # Optional regression is performed here.
 all.genes <- rownames(seuset)
 seu <- ScaleData(
-    object = seu,  vars.to.regress = vars_to_regress,
+    object = seu,  vars.to.regress = params$vars_to_regress,
     assay = "sf",
     features = all.genes
 )
 seu <- ScaleData(
-    object = seu,  vars.to.regress = vars_to_regress,
+    object = seu,  vars.to.regress = params$vars_to_regress,
     assay = "uf",
     features = all.genes
 )
@@ -839,9 +849,9 @@ ElbowPlot(object = seuset, ndims = 35)
 # Generating a combined UMAP plot with various defined settings. 
 # Only a legend in the first plotted (since this will be the same for the others).
 plot.list <- list()
-for (i in (1:length(pcs_for_overview))){
-  seuset <- RunUMAP(seuset, dims = 1:pcs_for_overview[i])
-  dimnr <- as.character(pcs_for_overview[i])
+for (i in (1:length(params$pcs_for_overview))){
+  seuset <- RunUMAP(seuset, dims = 1:params$pcs_for_overview[i])
+  dimnr <- as.character(params$pcs_for_overview[i])
   print(dimnr)
   if (i == 1){
     plot.list[[dimnr]] <- DimPlot(seuset, reduction = "umap", group.by = params$umap_col, combine = TRUE) + ggtitle(paste0("UMAP 1:", dimnr))
@@ -852,8 +862,8 @@ for (i in (1:length(pcs_for_overview))){
   i = i + 1
   }
 }
-pdf(paste(resultsdir, paste0("UMAPdiffsettings_lineages_", paste(as.character(pcs_for_overview), collapse = "-"),".pdf"),sep="/"), width = 20, height = 15)
-CombinePlots(plot.list, nrows = round(length(pcs_for_overview)/3))
+pdf(paste(resultsdir, paste0("UMAPdiffsettings_lineages_", paste(as.character(params$pcs_for_overview), collapse = "-"),".pdf"),sep="/"), width = 20, height = 15)
+CombinePlots(plot.list, nrows = round(length(params$pcs_for_overview)/3))
 dev.off()
 ```
 

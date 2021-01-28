@@ -4,8 +4,9 @@ output:
   html_document:
     df_print: paged
 params:
-  rmd.root : "analysis/20210105_DatasetVelocityPreparation_S2S_template.Rmd"
+  rm.dir: "/Users/tilman_work/Documents/Projects/R/scRNA-seq/analysis"
   kb.dir : "/Users/tilman_work/Documents/Projects/R/testset/kallistobus"
+  resultsdir: "/Users/tilman_work/Documents/Projects/R/scRNA-seq/output"
   # if regression is performed: this will already be included in the folder name
   result_descript : "_results_PreprocessingDataset_complete_clean"
   #Necessary files
@@ -53,8 +54,8 @@ params:
     - Make sure the plates to combine all have the same amount of "_" separated fields in their folder names. These fields will be used to set up the phenodata columns. - The Combined ID per plate, will be used for labelling in figures.
     
     ```{r include = FALSE}
-    here::i_am(params$rmd.root)
-    knitr::opts_knit$set(root.dir = here::here())
+    here::here()
+    knitr::opts_chunk$set(echo = TRUE)
     # Loading the important repositories # 
     require("devtools")
     library(ggplot2)
@@ -104,30 +105,13 @@ if (params$old_col_pattern != ""){
   colnames(spliced.data.df) <- gsub(params$old_col_pattern, params$new_col_pattern, colnames(spliced.data.df))
   colnames(unspliced.data.df) <- gsub(params$old_col_pattern, params$new_col_pattern, colnames(unspliced.data.df))
 }
-
-```
-
-#### Setting up results directory
-
-```{r}
-# if regression will be performed, this is included in the folder name.
-if (!is.null(params$vars_to_regress)){
-result_descript <- paste(params$result_descript, "regressed", sep = "_")  
-}
-
-dateoftoday <- gsub("-", "", as.character(Sys.Date()))
-resultsdir <- paste(here::here(),"/output/", "/R_analysis/", dateoftoday, params$result_descript, sep = "")
-system(paste("mkdir -p ", resultsdir))
-print(resultsdir)
 ```
 
 ```{r}
 # Percentage of reads unspliced
 sum(unspliced.data.df)/(sum(spliced.data.df)+sum(unspliced.data.df))
-
 # Make columnnames the same (order) between matrices
 all_cells <- intersect(colnames(spliced.data.df),colnames(unspliced.data.df))
-
 unspliced.data.df <- unspliced.data.df[,all_cells]
 spliced.data.df <- spliced.data.df[,all_cells]
 
@@ -138,7 +122,6 @@ data.df <- spliced.data.df
 ```
 
 ### Perform subsetting of dataset (optional)
-
 ```{r filtering certain entries}
 
 if (params$filtering == "out"){
@@ -165,7 +148,6 @@ unspliced.data.df <- unspliced.data.df[,subset_cells]
 
 # no. of plates:
 length(colnames(spliced.data.df))/params$n_bc
-print(resultsdir)
 ```
 
 
@@ -176,7 +158,7 @@ if (params$extract_phenotypes) {
   phenodata <- phenodata_all[[1]]
   pheno_matched <- phenodata_all[[2]]
   identical(rownames(phenodata), colnames(spliced.data.df))
-  write.csv(phenodata, paste(resultsdir,"phenodata_kbordered.csv", sep="/"))
+  write.csv(phenodata, paste(params$resultsdir,"phenodata_kbordered.csv", sep="/"))
 } else {
   #The user supplies phenotdata (at least library info) via a tab/csv delimited file. 
   phenodata <- NULL
@@ -192,7 +174,7 @@ Running QC over the plates: are there
 ```{r}
 if (params$run.plate_qc) {
   ## Running plate QC: are there certain patterns?
-  out.file <- paste(resultsdir,"PlateDiag_lndscp.pdf",sep="/")
+  out.file <- paste(params$resultsdir,"PlateDiag_lndscp.pdf",sep="/")
   plate_qc(data.df = data.df,barcode_file = params$barcode_file, spliced.data.df = spliced.data.df, out.file = out.file )
   # # Make a list of cell-names compatable with the excel file: plate#_A1, plate#_A2 etc.
 } else {
@@ -387,7 +369,7 @@ Plotting the distributions of the dataset before and after filtering.
 
 #saveRDS(sce_filt, file = "qc_counts.rds")
 
-pdf(paste(resultsdir,"Histograms_before+aftercellsFiltering.pdf",sep="/"))
+pdf(paste(params$resultsdir,"Histograms_before+aftercellsFiltering.pdf",sep="/"))
 par(mfrow=c(2,2))
 hist(sce_filt$total_counts, breaks = 100)
 abline(v = params$total_counts_tresh, col = "red")
@@ -403,7 +385,7 @@ abline(v= params$total_feat_tresh, col = "red")
 dev.off()
 #Create MT plot before and after filtering
 if(params$add.qc.MT) {
-  pdf(paste(resultsdir,"MT_before+aftercellsFiltering.pdf", sep="/"))
+  pdf(paste(params$resultsdir,"MT_before+aftercellsFiltering.pdf", sep="/"))
   par(mfrow=c(2,2))
   plotColData(sce_filt,
               x = "total_features_by_counts", 
@@ -415,7 +397,7 @@ if(params$add.qc.MT) {
 }
 #Create ERCC plot before and after filltering
 if (params$add.qc.ERCC) {
-  pdf(paste(resultsdir,"ERCC_before+aftercellsFiltering.pdf", sep="/"))
+  pdf(paste(params$resultsdir,"ERCC_before+aftercellsFiltering.pdf", sep="/"))
   par(mfrow=c(2,2))
   
   plotColData(sce_filt,
@@ -551,7 +533,7 @@ FeatureScatter(
     feature1 = "nCount_sf", 
     feature2 = "nFeature_sf"
 )
-saveRDS(seuset, paste(resultsdir,"seuset_qc+norm.rds",sep="/"))
+saveRDS(seuset, paste(params$resultsdir,"seuset_qc+norm.rds",sep="/"))
 ```
 
 #### Check confounders before & after normalization
@@ -688,7 +670,7 @@ abline(v = params$total_counts_tresh, col = "red")
 hist(sce_usmatch$total_features_by_counts, breaks = 100)
 abline(v= params$total_feat_tresh, col = "red")
 
-pdf(paste(resultsdir,"Histograms_before+aftercellsFiltering_UnsplicedReads.pdf",sep="/"))
+pdf(paste(params$resultsdir,"Histograms_before+aftercellsFiltering_UnsplicedReads.pdf",sep="/"))
 par(mfrow=c(2,2))
 hist(sce_us$total_counts, breaks = 100)
 abline(v = params$total_counts_tresh, col = "red")
@@ -795,7 +777,7 @@ length(seuset[["uf"]]@var.features)
 
 VizDimLoadings(object = seuset, dims = 1:10, reduction = "pca")
 VizDimLoadings(object = seuset, dims = 10:20, reduction = "pca")
-pdf(paste(resultsdir,paste0("VizPCAplot_PCs1-", params$pcs_max, ".pdf"), sep="/"), width = 20, height = 60)
+pdf(paste(params$resultsdir,paste0("VizPCAplot_PCs1-", params$pcs_max, ".pdf"), sep="/"), width = 20, height = 60)
 VizDimLoadings(object = seuset, dims = 1:params$pcs_max, reduction = "pca")
 dev.off()
 
@@ -809,7 +791,7 @@ DimHeatmap(
     balanced = TRUE
 )
 
-pdf(paste(resultsdir,paste0("PCheatmap_PCs1-", params$pcs_max, ".pdf"), sep="/"), width = 20, height = 60)
+pdf(paste(params$resultsdir,paste0("PCheatmap_PCs1-", params$pcs_max, ".pdf"), sep="/"), width = 20, height = 60)
 DimHeatmap(
     object = seuset, 
     dims = 1:params$pcs_max, 
@@ -859,7 +841,7 @@ for (i in (1:length(params$pcs_for_overview))){
   i = i + 1
   }
 }
-pdf(paste(resultsdir, paste0("UMAPdiffsettings_lineages_", paste(as.character(params$pcs_for_overview), collapse = "-"),".pdf"),sep="/"), width = 20, height = 15)
+pdf(paste(params$resultsdir, paste0("UMAPdiffsettings_lineages_", paste(as.character(params$pcs_for_overview), collapse = "-"),".pdf"),sep="/"), width = 20, height = 15)
 CombinePlots(plot.list, nrows = round(length(params$pcs_for_overview)/3))
 dev.off()
 ```
@@ -868,7 +850,7 @@ Based on the heatmaps, elbow (as well as the JackStraw indicating these are sign
 
 ```{r}
 # Saving the dataset with the normalized, scaled and identified HVGs (stored in seuset.scnorm@var.genes).
-saveRDS(seuset, file= paste(resultsdir,"seusetv3_scnormHVG_velocity.rds", sep="/"))
+saveRDS(seuset, file= paste(params$resultsdir,"seusetv3_scnormHVG_velocity.rds", sep="/"))
 ```
 
 

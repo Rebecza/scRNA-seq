@@ -4,14 +4,14 @@ output:
   html_document:
     df_print: paged
 params:
-  rm.dir: "/Users/tilman_work/Documents/Projects/R/scRNA-seq/analysis"
-  kb.dir : "/Users/tilman_work/Documents/Projects/R/testset/kallistobus"
-  resultsdir: "/Users/tilman_work/Documents/Projects/R/scRNA-seq/output"
+  #rm.dir: "/Users/tilman_work/Documents/Projects/R/scRNA-seq/analysis"
+  kb.dir : ""
+  resultsdir: ""
   # if regression is performed: this will already be included in the folder name
   result_descript : "_results_PreprocessingDataset_complete_clean"
   #Necessary files
-  barcode_file: "/Users/tilman_work/Documents/Projects/R/scRNA-seq/data/barcode_384.tab"
-  MT_genes_file: "/Users/tilman_work/Documents/Projects/R/scRNA-seq/data/MT_genes.txt"
+  barcode_file: "barcode_384.tab"
+  MT_genes_file: "MT_genes.txt"
   old_col_pattern: "_S"
   new_col_pattern: "-S" # Retrieve the variables from the platenames (fields seperated with "_")
   # Gene filter settings for genes
@@ -48,14 +48,21 @@ params:
   explore_violin: !r c("SOX2", "GAPDH")
   vars_to_regress: !r c("nCount_sf", "nFeature_sf") # Regression performed on the following variables:"
 ---
+    
+    ```{r include = FALSE}
+    here::set_here()
+    knitr::opts_chunk$set(root.dir = here::here(), echo = TRUE)
+    source(here::here("../read_kb_dataset_s2s.R"),local = knitr::knit_global())
+    source(here::here("../plate_QC.R"), local = knitr::knit_global())
+    source(here::here("../get_pheno_data.R"), local = knitr::knit_global())
+    system(paste("mkdir -p ", params$resultsdir))
 
+    ```
     ## *Setting Parameters:* 
     To keep in mind: 
     - Make sure the plates to combine all have the same amount of "_" separated fields in their folder names. These fields will be used to set up the phenodata columns. - The Combined ID per plate, will be used for labelling in figures.
     
     ```{r include = FALSE}
-    here::here()
-    knitr::opts_chunk$set(echo = TRUE)
     # Loading the important repositories # 
     require("devtools")
     library(ggplot2)
@@ -72,9 +79,7 @@ params:
     library(plot3D)
     
     ## Location of scripts ##
-    source(here::here("./src/read_kb_dataset_s2s.R"))
-    source(here::here("./src/plate_qc.R"))
-    source(here::here("./src/get_pheno_data.R"))
+
     # options(stringsAsFactors = FALSE)
     # plate_variables = c("Genome","Method", "Lineage", "Timepoint", "Replicate" , "Library", "Well")  # Unique combined ID per plate, for visualization purposes
     # combined_variables_to_id = c("Method", "Lineage", "Timepoint", "Library")

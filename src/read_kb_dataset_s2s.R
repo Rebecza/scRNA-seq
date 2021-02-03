@@ -12,16 +12,14 @@ read_kb_counts <- function(dir, name, barcode_file, remove_bc=TRUE) {
   # name: the name of count assay you want to load (e.g. 
   #   spliced, unspliced or cells_x_genes, the latter when 
   #   running without velocity)
-
+  
   # barcode_file is a 2-column file with a well-id its respective DNA barcode
   # t2g_file is the transcript-to-gene file created with the kb-wrapper genome index
-
+  
   # Change only the parameters in this block:
   #----------------------------#
-  # Location of needed files
-  barcode_file <- barcode_file
   #----------------------------#
-
+  
   ## Loading packages & files ##
   library(Matrix)
   library(tidyr)
@@ -58,16 +56,23 @@ read_kb_counts <- function(dir, name, barcode_file, remove_bc=TRUE) {
     }
     i <- i + 1
   }
+  cells <- data.frame("cell" = colnames(combined))
+  cells$barcode <- gsub("_.*", "", cells$cell)
   if (remove_bc){
+    barcode_file <- barcode_file
     ## Replace cell barcodes for well identifier ##
     # barcode file contains the well identifier and corresponding DNA barcode
     plate_order <- read.table(barcode_file, sep = "\t", col.names = c("well","barcode"))
     # generate a data.frame to match barcode and wellid 
-    cells <- data.frame("cell" = colnames(combined))
-    cells$barcode <- gsub("_.*", "", cells$cell)
     cells$well <- plate_order$well[match(cells$barcode, plate_order$barcode)]
     # Remove DNA barcode and add wellid 
     cells$cell_id <- paste(gsub("^.*?_", "", cells$cell), cells$well, sep = "_")
+    cells$cell_id <- gsub("-", "_", cells$cell_id)
+    # replace cell names of the count matrix
+    colnames(combined) <- cells$cell_id
+  } else {
+    # Remove DNA barcode and add wellid 
+    cells$cell_id <- paste(gsub("^.*?_", "", cells$cell), cells$barcode, sep = "_")
     cells$cell_id <- gsub("-", "_", cells$cell_id)
     # replace cell names of the count matrix
     colnames(combined) <- cells$cell_id

@@ -3,8 +3,8 @@ title: "SORT-seq dataset with velocity preparations"
 params:
   ERCC_pct_max: 20
   MT_genes_file: /Users/tilman_work/Documents/Projects/R/scRNA-seq/data/MT_genes.txt
-  add.qc.ERCC: yes
-  add.qc.MT: yes
+  add.qc.ERCC: true
+  add.qc.MT: true
   amount_cells_expr: 0
   barcode_file: /Users/tilman_work/Documents/Projects/R/scRNA-seq/data/barcode_384.tab
   combined_variables_to_id: Method,Lineage,Timepoint,Library
@@ -218,6 +218,7 @@ sce <- calculateQCMetrics(
   sce, feature_controls = control_features )
 
 # Removal of cells causing a warning:
+NaN_cells <- NULL 
 if (params$add.qc.MT && params$add.qc.ERCC) {
   NaN_cells <- unique(c(colnames(sce)[sce$pct_counts_ERCC == "NaN"], colnames(sce)[sce$pct_counts_MT == "NaN"]))
 } else if (params$add.qc.MT) {
@@ -225,7 +226,10 @@ if (params$add.qc.MT && params$add.qc.ERCC) {
 } else if (params$add.qc.ERCC) {
   NaN_cells <- c(colnames(sce)[sce$pct_counts_ERCC == "Nan"])
 }
-sce <- sce[,!colnames(counts(sce)) %in% NaN_cells]
+if (!is.null(NaN_cells)) {
+  sce <- sce[,!colnames(counts(sce)) %in% NaN_cells]
+}
+
   
 ```
 #### Distribution of counts per cell in the dataset
@@ -359,30 +363,29 @@ dev.off()
 if(params$add.qc.MT) {
   pdf(paste(params$resultsdir,"MT_before+aftercellsFiltering.pdf", sep="/"))
   par(mfrow=c(2,2))
-  plotColData(sce,
+  print(plotColData(sce,
               x = "total_features_by_counts", 
-              y = "pct_counts_MT", colour = params$lab_col)
+              y = "pct_counts_MT", colour = params$lab_col))
   
-  plotColData(sce_qc,
+  print(plotColData(sce_qc,
               x = "total_features_by_counts", 
-              y = "pct_counts_MT", colour = params$lab_col)
+              y = "pct_counts_MT", colour = params$lab_col))
+  dev.off()
 }
-dev.off()
+
 #Create ERCC plot before and after filltering
 if (params$add.qc.ERCC) {
   pdf(paste(params$resultsdir,"ERCC_before+aftercellsFiltering.pdf", sep="/"))
   par(mfrow=c(2,2))
   
-  plotColData(sce,
+  print(plotColData(sce,
               x = "total_features_by_counts", 
-              y = "pct_counts_ERCC", colour = params$lab_col)
-  plotColData(sce_qc,
+              y = "pct_counts_ERCC", colour = params$lab_col))
+  print(plotColData(sce_qc,
               x = "total_features_by_counts", 
-              y = "pct_counts_ERCC", colour = params$lab_col)
+              y = "pct_counts_ERCC", colour = params$lab_col))
+  dev.off()
 }
-dev.off()
-
-
 ``` 
 
 In the dataset `r genes_expressed` are considered expressed.

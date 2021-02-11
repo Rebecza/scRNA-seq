@@ -1,4 +1,4 @@
-read_kb_counts <- function(dir, name, barcode_file, remove_bc=TRUE) {
+read_kb_counts <- function(dir, name, barcode_file, remove_bc=TRUE, replace_col_old="_S", replace_col_with="-S") {
   # Loading scRNA-seq count matrix
   #
   # Generates a combined scRNA-seq matrix from the ouput of 
@@ -77,5 +77,6 @@ read_kb_counts <- function(dir, name, barcode_file, remove_bc=TRUE) {
     # replace cell names of the count matrix
     colnames(combined) <- cells$cell_id
   }
+  colnames(combined) <- gsub(replace_col_old, replace_col_with, colnames(combined))
   return(combined)
 }

@@ -91,15 +91,24 @@ The counts table is loaded along with the metadata of the cells within an Scater
 Location of the file:
 ```{r loading dataset, echo = TRUE, warning = FALSE}
 ## Splice seperated dataset:
-spliced.data.df = read_kb_counts(params$kb.dir, "spliced", barcode_file = params$barcode_file, remove_bc=params$remove_bc)
-unspliced.data.df = read_kb_counts(params$kb.dir, "unspliced", barcode_file = params$barcode_file,remove_bc=params$remove_bc)
-
 ## Optional edits on cell names:
 # This only runs if a substring that needs replacement was defined in parameters (old_col_pattern):
-if (params$old_col_pattern != ""){
-  colnames(spliced.data.df) <- gsub(params$old_col_pattern, params$new_col_pattern, colnames(spliced.data.df))
-  colnames(unspliced.data.df) <- gsub(params$old_col_pattern, params$new_col_pattern, colnames(unspliced.data.df))
-}
+spliced.data.df = read_kb_counts(
+  params$kb.dir,
+  "spliced",
+  barcode_file = params$barcode_file,
+  remove_bc = params$remove_bc,
+  replace_col_old = params$old_col_pattern,
+  replace_col_with = params$new_col_pattern
+  )
+  unspliced.data.df = read_kb_counts(
+  params$kb.dir,
+  "unspliced",
+  barcode_file = params$barcode_file,
+  remove_bc = params$remove_bc,
+  replace_col_old = params$old_col_pattern,
+  replace_col_with = params$new_col_pattern
+  )
 ```
 
 ```{r}
@@ -204,15 +213,15 @@ Setting thresholds for the removal of genes too lowly expressed in too few cells
 # Filtering on genes considered expressed: above a treshold for a set amount of cells:
 control_features <- vector("list", 0) 
 # Adding spike-in information: (Testing)
-if (params$add.qc.MT) {
+#if (params$add.qc.MT) {
   MT_genes <- read.table(params$MT_genes_file)[,1]
   isSpike(sce, "MT") <- rownames(sce)[rownames(sce) %in% MT_genes]
   control_features[["MT"]] <- isSpike(sce, "MT")
-}
-if (params$add.qc.ERCC) {
-  isSpike(sce, "ERCC") <- grepl("^ERCC-", rownames(sce))
+#}
+#if (params$add.qc.ERCC) {
+  isSpike(sce, "ERCC") <- grepl("^ERCC2-", rownames(sce))
     control_features[["ERCC"]] <- isSpike(sce, "ERCC")
-}
+#}
 # Calculate the quality metrics:
 sce <- calculateQCMetrics(
   sce, feature_controls = control_features )

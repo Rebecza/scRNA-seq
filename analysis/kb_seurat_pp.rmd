@@ -10,7 +10,7 @@ params:
   combined_variables_to_id: Method,Lineage,Timepoint,Library
   confounders_to_test: Library,Lineage,Timepoint
   explore_violin: SOX2,GAPDH
-  extract_phenotypes: yes
+  extract_phenotypes: false
   filtering: 'no'
   gene_tresh: 0
   kb.dir: /Users/tilman_work/Documents/Projects/R/testset/kallistobus
@@ -18,12 +18,12 @@ params:
   mt_pct_max: 50
   nHVG: 2000
   n_bc: 384
+  meta_data: "/Users/tilman_work/Documents/Projects/R/scRNA-seq/data/phenodata_kbordered.csv"
   new_col_pattern: -S
   old_col_pattern: _S
   pcs_for_overview: '10,20,30,40,50'
   pcs_max: 70
   plate_variables: Genome,Method,Lineage,Timepoint,Replicate,Library,Well
-  result_descript: _results_PreprocessingDataset_complete_clean
   resultsdir: /Users/tilman_work/Documents/Projects/R/scRNA-seq/output
   run.plate_qc: no
   remove_bc: TRUE
@@ -33,9 +33,9 @@ params:
   umap_col: Method
   vars_to_regress: nCount_sf,nFeature_sf
 output:
-  html_document:
-    df_print: paged
-  pdf_document: default
+  pdf_document:
+    toc: true
+    number_sections: true
 ---
     
     ```{r include = TRUE}
@@ -155,8 +155,12 @@ if (params$extract_phenotypes) {
   write.csv(phenodata, paste(params$resultsdir,"phenodata_kbordered.csv", sep="/"))
 } else {
   #The user supplies phenotdata (at least library info) via a tab/csv delimited file. 
-  phenodata <- NULL
-  print("No phenotypes extracted from cell name. Please provide your own meta data! ")
+  phenodata_all <- read_pheno_data(path = params$meta_data, 
+                               data.df = data.df, 
+                               combined_variables_to_id = combined_variables_to_id)
+  phenodata <- phenodata_all[[1]]
+  pheno_matched <- phenodata_all[[2]]
+  identical(phenodata[[1]], colnames(spliced.data.df))
 }
 
 ```
@@ -200,7 +204,7 @@ Setting thresholds for the removal of genes too lowly expressed in too few cells
 control_features <- vector("list", 0) 
 keep_feature <- rowSums(counts(sce) > params$gene_tresh) > params$amount_cells_expr
 sce_filt <- sce[keep_feature,]
-# Adding spike-in information:
+# Adding spike-in information: (Testing)
 if (params$add.qc.MT) {
   MT_genes <- read.table(params$MT_genes_file)[,1]
   isSpike(sce_filt, "MT") <- rownames(sce_filt)[rownames(sce_filt) %in% MT_genes]
@@ -414,7 +418,7 @@ PCA on only the endogenous genes is used to evaluate the influence of the confou
 
 ```{r endogenous dataset for confounding factors}
 #------------------------------
-# Filter endogenous
+# Filter endogenous (add scenario for alle qc combinaties)
 #------------------------------
 # load the filtered dataset:
 #sce_qc <- readRDS("qc_counts.rds")

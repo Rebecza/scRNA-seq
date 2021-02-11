@@ -29,9 +29,6 @@ read_pheno_data <- function(path=NULL, data.df=NULL, combined_variables_to_id=NU
   pheno_matched <- phenodata[rownames(phenodata) %in% colnames(data.df),]
   # Matching phenodata with the dataset ordering
   pheno_ordered <- pheno_matched[match(colnames(data.df),rownames(pheno_matched)),]
-  if (!identical(pheno_ordered, colnames(data.df))) {
-    stop("meta data rownames are not identical to sample names")
-  }
   return(list(pheno_ordered, pheno_matched))
 }
 

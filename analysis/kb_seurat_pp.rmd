@@ -65,7 +65,6 @@ output:
     library(scran)
     library(RColorBrewer)
     library(plot3D)
-    
     ## unlist parameters ##
     label.vector = unlist(strsplit(params$umap_cols,","))
     # Unique combined ID per plate, for visualization purposes
@@ -161,7 +160,9 @@ if (params$extract_phenotypes) {
   phenodata_all <- get_pheno_data(data.df = data.df, combined_variables_to_id = combined_variables_to_id, plate_variables= plate_variables)
   phenodata <- phenodata_all[[1]]
   pheno_matched <- phenodata_all[[2]]
-  identical(rownames(phenodata), colnames(spliced.data.df))
+  if (!identical(rownames(phenodata), colnames(spliced.data.df))) {
+      stop("meta-data row names and cell ids are different")
+  }
   write.csv(phenodata, paste(params$resultsdir,"phenodata_kbordered.csv", sep="/"))
 } else {
   #The user supplies phenotdata (at least library info) via a tab/csv delimited file. 
@@ -170,7 +171,10 @@ if (params$extract_phenotypes) {
                                combined_variables_to_id = combined_variables_to_id)
   phenodata <- phenodata_all[[1]]
   pheno_matched <- phenodata_all[[2]]
-  identical(rownames(phenodata), colnames(spliced.data.df))
+  #Sanity check
+  if (!identical(rownames(phenodata), colnames(spliced.data.df))) {
+      stop("meta-data row names and cell ids are different")
+  }
 }
 
 ```

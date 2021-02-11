@@ -12,20 +12,20 @@ To keep in mind:
 
 ```{r}
 ## Parameters for processing dataset and metadata ##
-barcode_file = "/path_to_file/barcode_384.tab"
-MT_genes_file = "/path_to_file/MT_genes.txt"
+barcode_file = "/scratch/snabel/scrna/barcode_384.tab"
+MT_genes_file = "/scratch/snabel/scrna/genomes/genome_addons/MT_genes.txt"
 # Edit plate names with substitutes:
 old_col_pattern = "_S"
 new_col_pattern = "-S"
 # Retrieve the variables from the platenames (fields seperated with "_"):
-plate_variables = c("Genome","Method", "Lineage", "Timepoint", "Replicate" , "Library", "Well")
+plate_variables = c("Genome", "Spike-in", "Reporter","Cell_type", "Timepoint", "Library", "Index", "Cell_id")
 # Unique combined ID per plate, for visualization purposes
-combined_variables_to_id = c("Method", "Lineage", "Timepoint", "Library")
+combined_variables_to_id = c("Cell_type", "Timepoint", "Library")
 
 ## Filtering of the dataset ##
 # Settings for genes
-gene_tresh = 0
-amount_cells_expr = 0
+gene_tresh = 1
+amount_cells_expr = 1
 # Settings for cells
 total_counts_tresh = 1000
 total_feat_tresh = 500
@@ -48,19 +48,20 @@ vars_to_regress = c("nCount_sf", "nFeature_sf") # If no regression desired: NULL
 # For PCA to run on
 pcs_max = 70 
 # PCs used for different UMAP representations
-pcs_for_overview = c(10, 20, 30, 40, 50)
+pcs_for_overview = c(5, 10, 12, 15, 16, 18, 20, 25, 30, 40)
 
 ## Visualization ##
 # label from phenodata to color in Scater and Seurat plots
 lab_col = "Library"
-umap_col = "Method"
+umap_col = "Cell_type"
+umap_col2 = "Timepoint"
 # Checking variability explained by confounding factors
-confounders_to_test = c("Library", "Lineage","Timepoint")
+confounders_to_test = c("Cell_type", "Timepoint", "Library")
 # Marker genes for violin plots
-explore_violin = c("SOX2", "GAPDH")
+explore_violin = c("KLF4", "SOX2", "MYC", "OCT4", "GAPDH")
 
 ## Storing results ##
-workdir <- "/path_to_files/"
+workdir <- "/path/R_analysis"
 # if regression is performed: this will already be included in the folder name
 result_descript = "_results_PreprocessingDataset_complete_clean"
 
@@ -104,8 +105,8 @@ The counts table is loaded along with the metadata of the cells within an Scater
 Location of the file:
 ```{r loading dataset, echo = TRUE, warning = FALSE}
 ## Splice seperated dataset:
-spliced.data.df = read_kb_counts("./results/kallistobus/", "spliced", barcode_file = barcode_file)
-unspliced.data.df = read_kb_counts("./results/kallistobus/", "unspliced", barcode_file = barcode_file)
+spliced.data.df = read_kb_counts("../results_human/kallistobus/", "spliced", barcode_file = barcode_file)
+unspliced.data.df = read_kb_counts("../results_human/kallistobus/", "unspliced", barcode_file = barcode_file)
 
 ## Optional edits on cell names:
 # This only runs if a substring that needs replacement was defined in parameters (old_col_pattern):
@@ -113,7 +114,6 @@ if (old_col_pattern != ""){
   colnames(spliced.data.df) <- gsub(old_col_pattern, new_col_pattern, colnames(spliced.data.df))
   colnames(unspliced.data.df) <- gsub(old_col_pattern, new_col_pattern, colnames(unspliced.data.df))
 }
-
 ```
 
 #### Setting up results directory
@@ -125,7 +125,7 @@ result_descript <- paste(result_descript, "regressed", sep = "_")
 }
 
 dateoftoday <- gsub("-", "", as.character(Sys.Date()))
-resultsdir <- paste(workdir, "/R_analysis/", dateoftoday, result_descript, sep = "")
+resultsdir <- paste0(workdir, dateoftoday, "_", result_descript)
 system(paste("mkdir -p ", resultsdir))
 ```
 
@@ -140,7 +140,10 @@ Results will be stored in:
 # Percentage of reads unspliced
 sum(unspliced.data.df)/(sum(spliced.data.df)+sum(unspliced.data.df))
 
+# unspliced.data.df <- as.matrix(unspliced.data.df)
+# spliced.data.df <- as.matrix(spliced.data.df)
 # Make columnnames the same (order) between matrices
+
 all_cells <- intersect(colnames(spliced.data.df),colnames(unspliced.data.df))
 
 unspliced.data.df <- unspliced.data.df[,all_cells]
@@ -262,26 +265,18 @@ Setting thresholds for the removal of genes too lowly expressed in too few cells
 ```{r}
 MT_genes <- read.table(MT_genes_file)[,1]
 
-# Filtering on genes considered expressed: above a treshold for a set amount of cells:
-keep_feature <- rowSums(counts(sce) > gene_tresh) > amount_cells_expr
-sce_filt <- sce[keep_feature,]
-
 # Adding spike-in information:
-isSpike(sce_filt, "ERCC") <- grepl("^ERCC-", rownames(sce_filt))
-isSpike(sce_filt, "MT") <- rownames(sce_filt)[rownames(sce_filt) %in% MT_genes]
+isSpike(sce, "ERCC") <- grepl("^ERCC-", rownames(sce))
+isSpike(sce, "MT") <- rownames(sce)[rownames(sce) %in% MT_genes]
 
 # Calculate the quality metrics:
-sce_filt <- calculateQCMetrics(
-  sce_filt, feature_controls = list(
-    ERCC = isSpike(sce_filt, "ERCC"), 
-    MT = isSpike(sce_filt, "MT")
+sce <- calculateQCMetrics(
+  sce, feature_controls = list(
+    ERCC = isSpike(sce, "ERCC"), 
+    MT = isSpike(sce, "MT")
     )
   )
 ```
-
-Genes that had less than `r amount_cells_expr` cells with an expression of less than `r gene_tresh`.
-For the genes in this dataset genes that were removed `r table(keep_feature)` genes were kept.
-Spikes: `r spikeNames(sce_filt)` were saved in the dataset and used for quality metrics calculations.
 
 #### Distribution of counts per cell in the dataset
 
@@ -290,12 +285,12 @@ Manually setting arbitrary count tresholds for the cells considered healthy.
 ```{r}
 # Looking at the total number of RNA molecules per sample
 # UMI counts were used for this experiment
-hist(sce_filt$total_counts, breaks = 100)
+hist(sce$total_counts, breaks = 100)
 abline(v = total_counts_tresh, col = "red")
 
 # Looking at the amount of unique genes per sample
 # This is the amount with ERCC included.
-hist(sce_filt$total_features_by_counts, breaks = 100)
+hist(sce$total_features_by_counts, breaks = 100)
 abline(v= total_feat_tresh, col = "red")
 ```
 
@@ -310,46 +305,46 @@ A higher percentage of spike-in indicates a lower amount of endogenous genes fou
 
 ```{r}
 # Removal of cells causing a warning:
-NaN_cells <- unique(c(colnames(sce_filt)[sce_filt$pct_counts_ERCC == "NaN"], colnames(sce_filt)[sce_filt$pct_counts_MT == "NaN"]))
-sce_filt <- sce_filt[,!colnames(counts(sce_filt)) %in% NaN_cells]
+NaN_cells <- unique(c(colnames(sce)[sce$pct_counts_ERCC == "NaN"], colnames(sce)[sce$pct_counts_MT == "NaN"]))
+sce <- sce[,!colnames(counts(sce)) %in% NaN_cells]
 
 # Using Scater to plot percentages of spikes
-plotColData(sce_filt,
+plotColData(sce,
             x = "total_features_by_counts", 
             y = "pct_counts_MT", colour = lab_col)
 
-plotColData(sce_filt,
+plotColData(sce,
             x = "total_features_by_counts", 
             y = "pct_counts_ERCC", colour = lab_col)
 
 multiplot(
-  plotColData(sce_filt, y="total_counts", x="Library"),
-  plotColData(sce_filt, y="total_features_by_counts", x="Library"),
-  plotColData(sce_filt, y="pct_counts_ERCC", x="Library"),
-  plotColData(sce_filt, y="pct_counts_MT", x="Library"),
+  plotColData(sce, y="total_counts", x="Library"),
+  plotColData(sce, y="total_features_by_counts", x="Library"),
+  plotColData(sce, y="pct_counts_ERCC", x="Library"),
+  plotColData(sce, y="pct_counts_MT", x="Library"),
   cols=2)
 
 ```
 
 Plotting the percentages of the spike-ins against the total amount of genes, each dot represents a cell. Color labelled on `r lab_col`.
 
-#------------------------------------------
-## Filtering of death or unhealthy cells ##
-#------------------------------------------
+#------------------------
+## Filtering the cells ##
+#------------------------
 
-Using manual thresholds for filtering out the outliers in the dataset and using an automatic approach, based on a PCA on the quality metrics.
+Using manual thresholds for filtering out the outliers in the dataset.
 
 ```{r}
 #---------------------------
 ## Manually set thresholds for filtering of the cells:
 #---------------------------
 # Filter library-size and the total amount of genes on the thresholds shown above in the histogram.
-filter_by_expr_features <- sce_filt$total_features_by_counts >= total_feat_tresh
-filter_by_total_counts <- sce_filt$total_counts >= total_counts_tresh
-filter_by_ercc <- sce_filt$pct_counts_ERCC < ERCC_pct_max
-filter_by_mt <- sce_filt$pct_counts_MT < mt_pct_max
+filter_by_expr_features <- sce$total_features_by_counts >= total_feat_tresh
+filter_by_total_counts <- sce$total_counts >= total_counts_tresh
+filter_by_ercc <- sce$pct_counts_ERCC < ERCC_pct_max
+filter_by_mt <- sce$pct_counts_MT < mt_pct_max
 
-sce_filt$use <- (filter_by_expr_features 
+sce$use <- (filter_by_expr_features 
          & 
            filter_by_total_counts 
          &
@@ -366,63 +361,49 @@ table(filter_by_mt)
 
 # Result of manual filtering with set tresholds
 # TRUE are considered healthy cells:
-table(sce_filt$use)
+table(sce$use)
 
 ```
 
+```{r filter cells}
+# The quality check-passing cells are stored in the SCE-object in $use selection of the counts table. 
+# Create the quality-checked dataset:
+sce_qc <- sce[, colData(sce)$use]
+dim(sce_qc)
+```
 
-```{r}
+#------------------------
+## Filtering the genes ##
+#------------------------
+
+```{r filter genes}
 #---------------------------
 ## Filtering the genes
 #---------------------------
 # You do the filtering of the genes after selecting the healthy cells, because some genes might only be detected in poor quality cells
-# The reads consumed by the top 50 expressed genes:
-plotHighestExprs(sce_filt)
 
 # UMI were used to collapse the reads of the same transcript
-# Detectable expression: if at least 2 cells contain more than 1 transcript of the gene.
-# (Threshold is depending on sequencing depth.)
-filter_genes <- apply(
-    counts(sce_filt), 
-    1, 
-    function(x) length(x[x > 1]) >= 2
-    )
-genes_expressed <- sum(filter_genes==TRUE)
-
-```
-
-Now you stored the genes that are considered to be expressed in your dataset, in a vector called filter_genes.
-
-The next step is to select within the dataset the only information you want to keep for further analysis:
-- Selecting only the healthy cells according to what you choose to create thresholds (either manually or with the 3 MADs method etc),
-- Selecting only the genes considered to be expressed.
-
-```{r create filtered dataset}
-
-# Store the genes that are considered expressed.
-rowData(sce_filt)$use <- filter_genes
-
-# Now the quality check-passing cells and genes are stored in the SCE-object in $use selection of the counts table. 
-dim(sce_filt)
-dim(sce_filt[rowData(sce_filt)$use, colData(sce_filt)$use])
+# Filtering on genes considered expressed: above a treshold for a set amount of cells:
+keep_feature <- rowSums(counts(sce_qc) >= gene_tresh) >= amount_cells_expr
 
 # Create the quality-checked dataset:
-sce_qc <- sce_filt[rowData(sce_filt)$use, colData(sce_filt)$use]
+sce_qc <- sce_qc[keep_feature,]
 
+genes_expressed <- sum(keep_feature==TRUE)
+
+write.table("spliced_qc_counts.tsv", col.names = NA, quote = FALSE)
+saveRDS(sce_qc, file = "spliced_qc_counts.rds")
 ```
 
 Plotting the distributions of the dataset before and after filtering.
 
 ```{r filtered dataset: compare before/after filtering}
-
-#saveRDS(sce_filt, file = "qc_counts.rds")
-
 pdf("Histograms_before+aftercellsFiltering.pdf")
 par(mfrow=c(2,2))
-hist(sce_filt$total_counts, breaks = 100)
+hist(sce$total_counts, breaks = 100)
 abline(v = total_counts_tresh, col = "red")
 
-hist(sce_filt$total_features_by_counts, breaks = 100)
+hist(sce$total_features_by_counts, breaks = 100)
 abline(v= total_feat_tresh, col = "red")
 
 hist(sce_qc$total_counts, breaks = 100)
@@ -434,11 +415,11 @@ dev.off()
 
 pdf("MT+ERCC_before+aftercellsFiltering.pdf")
 par(mfrow=c(2,2))
-plotColData(sce_filt,
+plotColData(sce,
             x = "total_features_by_counts", 
             y = "pct_counts_MT", colour = lab_col)
 
-plotColData(sce_filt,
+plotColData(sce,
             x = "total_features_by_counts", 
             y = "pct_counts_ERCC", colour = lab_col)
 plotColData(sce_qc,
@@ -454,13 +435,9 @@ dev.off()
 
 In the dataset `r genes_expressed` are considered expressed.
 
-## Check for confounding factors
-
-PCA on only the endogenous genes is used to evaluate the influence of the confounding factors.
-
 ```{r endogenous dataset for confounding factors}
 #------------------------------
-# Filter endogenous
+# Filter endogenous genes
 #------------------------------
 # load the filtered dataset:
 #sce_qc <- readRDS("qc_counts.rds")
@@ -477,7 +454,23 @@ plotExprsFreqVsMean(sce_endo)
 
 ```
 
+```{r}
+# The reads consumed by the top 50 expressed genes:
+plotHighestExprs(sce_qc)
+
+```
+
+Summary of filtering genes:
+Genes that had less than `r amount_cells_expr` cells with an expression less than `r gene_tresh`.
+For the genes in this dataset genes that were removed `r table(keep_feature)` genes were kept.
+Spikes: `r spikeNames(sce)` were saved in the dataset and used for quality metrics calculations.
+
+## Check for confounding factors
+
+PCA on only the endogenous genes is used to evaluate the influence of the confounding factors.
+
 ```{r PCA on raw data}
+# The PCA per default uses the top 500 most variable genes of the dataset, changeable with the argument: ntop = 500.
 # Plotting the raw data without any transformation.
 sce_endo <- runPCA(
   sce_endo,
@@ -516,6 +509,7 @@ In this step you could filter the cells again, these however already have been f
 
 ```{r create seurat object}
 seuset <- CreateSeuratObject(counts = counts(sce_endo), assay = "sf", meta.data = as.data.frame(colData(sce_endo)[,1:(length(plate_variables)+1)]))
+
 ```
 
 ```{r}
@@ -753,14 +747,16 @@ seu <- FindVariableFeatures(
 
 # top 10 most variable genes
 top20 <- head(VariableFeatures(seu, assay = "sf"), 20)
+top20_uf <- head(VariableFeatures(seu, assay = "uf"), 20)
 
 # plot variable features with labels:
 plot1 <- VariableFeaturePlot(seu)
 plot2 <- LabelPoints(plot = plot1, points = top20, repel = TRUE)
 plot2
 plot3 <- VariableFeaturePlot(seu, assay = "uf")
-plot4 <- LabelPoints(plot = plot1, points = top20, repel = TRUE)
+plot4 <- LabelPoints(plot = plot3, points = top20_uf, repel = TRUE)
 plot4
+
 # Preferable removing the genes that are highly expressed but with a low variance.
 length(x = seu@assays$sf@var.features)
 seu[["sf"]]@var.features[1:10]
@@ -768,10 +764,9 @@ seu[["sf"]]@var.features[1:10]
 
 ```
 
-```{r scaling and regressing}
+```{r}
 # Scaling the data to make it usable for dimensional reduction 
 # using all the genes, could also select only the highly variable genes. 
-# Optional regression is performed here.
 all.genes <- rownames(seuset)
 seu <- ScaleData(
     object = seu,  vars.to.regress = vars_to_regress,
@@ -786,7 +781,7 @@ seu <- ScaleData(
 ```
 
 ## Running PCA analysis on the scaled data
-```{r running PCA}
+```{r}
 seuset <- seu
 rm(seu)
 DefaultAssay(seuset) <- "sf"
@@ -802,7 +797,7 @@ length(seuset[["uf"]]@var.features)
 ```
 
 ## Visualizing PCA results:
-```{r visualize PCA}
+```{r}
 #PrintPCA(object = seuset.scnorm, pcs.print = 1:5, genes.print = 5, use.full = FALSE)
 
 VizDimLoadings(object = seuset, dims = 1:10, reduction = "pca")
@@ -833,16 +828,16 @@ dev.off()
 
 ## Perform JackStraw Permutations to find significant PCs
 
-```{r running JackStraw}
-seuset.jack <- JackStraw(
-    object = seuset,
-    num.replicate = 100
-)
-seuset.jack <- ScoreJackStraw(seuset.jack, dims = 1:20)
+```{r}
+# seuset.jack <- JackStraw(
+#     object = seuset,
+#     num.replicate = 100
+# )
+# seuset.jack <- ScoreJackStraw(seuset.jack, dims = 1:20)
 ```
 
 ```{r}
-JackStrawPlot(object = seuset.jack, dims = 1:20)
+# JackStrawPlot(object = seuset.jack, dims = 1:20)
 ```
 
 ## Plotting Elbow plot to identify significant PCs
@@ -855,27 +850,39 @@ ElbowPlot(object = seuset, ndims = 35)
 ## Overview of different UMAPs with varying dimensional input
 
 ```{r}
-# Generating a combined UMAP plot with various defined settings. 
-# Only a legend in the first plotted (since this will be the same for the others).
+# Generating a combined plot with only a legend in the first plotted (since this will be the same for the others)
 plot.list <- list()
+plot.list2 <- list()
+label.vector <- c(umap_col, umap_col2)
+j = 0
+
+## This could be done nicer with a loop probably, in which for each principle component of interest, there is a umap run, and 2 different labels are shown for it.
+
 for (i in (1:length(pcs_for_overview))){
   seuset <- RunUMAP(seuset, dims = 1:pcs_for_overview[i])
   dimnr <- as.character(pcs_for_overview[i])
   print(dimnr)
   if (i == 1){
-    plot.list[[dimnr]] <- DimPlot(seuset, reduction = "umap", group.by = umap_col, combine = TRUE) + ggtitle(paste0("UMAP 1:", dimnr))
+    plot.list[[dimnr]] <- DimPlot(seuset, reduction = "umap", group.by = label.vector[1], combine = TRUE) + ggtitle(paste0("UMAP 1:", dimnr))
+    plot.list2[[dimnr]] <- DimPlot(seuset, reduction = "umap", group.by = label.vector[2], combine = TRUE) + ggtitle(paste0("UMAP 1:", dimnr))
     i = i + 1
   }
   else {
-  plot.list[[dimnr]] <- DimPlot(seuset, reduction = "umap", group.by = umap_col, combine = TRUE) + ggtitle(paste0("UMAP 1:", dimnr)) + theme(legend.position = "none")
+    plot.list[[dimnr]] <- DimPlot(seuset, reduction = "umap", group.by = label.vector[1], combine = TRUE) + ggtitle(paste0("UMAP 1:", dimnr)) + theme(legend.position = "none")
+    plot.list2[[dimnr]] <- DimPlot(seuset, reduction = "umap", group.by = label.vector[2], combine = TRUE) + ggtitle(paste0("UMAP 1:", dimnr)) + theme(legend.position = "none")
   i = i + 1
   }
 }
-pdf(paste0("UMAPdiffsettings_lineages_", paste(as.character(pcs_for_overview), collapse = "-"),".pdf"), width = 20, height = 15)
+
+pdf(paste0("UMAPdiffsettings_", paste(as.character(pcs_for_overview), collapse = "-"), label.vector[1], ".pdf"), width = 20, height = 15)
 CombinePlots(plot.list, nrows = round(length(pcs_for_overview)/3))
 dev.off()
-```
 
+pdf(paste0("UMAPdiffsettings_", paste(as.character(pcs_for_overview), collapse = "-"), label.vector[2], ".pdf"), width = 20, height = 15)
+CombinePlots(plot.list2, nrows = round(length(pcs_for_overview)/3))
+dev.off()
+
+```
 Based on the heatmaps, elbow (as well as the JackStraw indicating these are significant as well) the first 6 PCs can be used for further analysis.
 
 ```{r}
@@ -883,6 +890,9 @@ Based on the heatmaps, elbow (as well as the JackStraw indicating these are sign
 saveRDS(seuset, file="seusetv3_scnormHVG_velocity.rds")
 ```
 
+```{r}
+sessionInfo()
+```
 
 # Now use this file in the Velocyto.R dedicated Conda environment: 
 conda activate kb_scrna_velocyto2

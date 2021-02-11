@@ -25,12 +25,12 @@ params:
   pcs_max: 70
   plate_variables: Genome,Method,Lineage,Timepoint,Replicate,Library,Well
   resultsdir: /Users/tilman_work/Documents/Projects/R/scRNA-seq/output
-  run.plate_qc: no
+  run.plate_qc: true
   remove_bc: TRUE
   subset_id: ''
   total_counts_tresh: 1000
   total_feat_tresh: 500
-  umap_cols: Method,Timepoint
+  umap_cols: Method
   vars_to_regress: nCount_sf,nFeature_sf
 output:
   pdf_document:
@@ -67,6 +67,7 @@ output:
     library(plot3D)
     
     ## unlist parameters ##
+    label.vector = unlist(strsplit(params$umap_cols,","))
     # Unique combined ID per plate, for visualization purposes
     plate_variables = unlist(strsplit(params$plate_variables,","))
     combined_variables_to_id = unlist(strsplit(params$combined_variables_to_id,","))
@@ -176,7 +177,6 @@ if (params$run.plate_qc) {
   plate_qc(data.df = data.df,barcode_file = params$barcode_file, spliced.data.df = spliced.data.df, out.file = out.file )
   # # Make a list of cell-names compatable with the excel file: plate#_A1, plate#_A2 etc.
   dev.off()
-
 } else {
   print("No plate QC performed!")
 }
@@ -332,8 +332,8 @@ dim(sce_qc)
 keep_feature <- rowSums(counts(sce_qc) >= params$gene_tresh) >= params$amount_cells_expr
 sce_qc <- sce_qc[keep_feature,]
 genes_expressed <- sum(keep_feature==TRUE)
-write.table("spliced_qc_counts.tsv", col.names = NA, quote = FALSE)
-saveRDS(sce_qc, file = "spliced_qc_counts.rds")
+write.table(paste(params$resultsdir,"spliced_qc_counts.tsv",sep="/"), col.names = NA, quote = FALSE)
+saveRDS(sce_qc, file = paste(params$resultsdir,"spliced_qc_counts.rds",sep="/"))
 ```
 Plotting the distributions of the dataset before and after filtering.
 
@@ -367,6 +367,7 @@ if(params$add.qc.MT) {
               x = "total_features_by_counts", 
               y = "pct_counts_MT", colour = params$lab_col)
 }
+dev.off()
 #Create ERCC plot before and after filltering
 if (params$add.qc.ERCC) {
   pdf(paste(params$resultsdir,"ERCC_before+aftercellsFiltering.pdf", sep="/"))
@@ -807,40 +808,35 @@ ElbowPlot(object = seuset, ndims = 35)
 # Generating a combined UMAP plot with various defined settings. 
 # Only a legend in the first plotted (since this will be the same for the others).
 # Generating a combined plot with only a legend in the first plotted (since this will be the same for the others)
-plot.list <- list()
-plot.list2 <- list()
-label.vector <- unlist(strsplit(params$umap_cols,","))
-j = 0
 ## This could be done nicer with a loop probably, in which for each principle component of interest, there is a umap run, and 2 different labels are shown for it.
-for (i in (1:length(pcs_for_overview))){
-  seuset <- RunUMAP(seuset, dims = 1:pcs_for_overview[i])
-  dimnr <- as.character(pcs_for_overview[i])
-  print(dimnr)
-  if (i == 1){
-    plot.list[[dimnr]] <- DimPlot(seuset, reduction = "umap", group.by = label.vector[1], combine = TRUE) + ggtitle(paste0("UMAP 1:", dimnr))
-    plot.list2[[dimnr]] <- DimPlot(seuset, reduction = "umap", group.by = label.vector[2], combine = TRUE) + ggtitle(paste0("UMAP 1:", dimnr))
-    i = i + 1
+combine_umap_plot <- function(umap, pcs_for_overview){
+  plot.list <- list()
+  for (i in (1:length(pcs_for_overview))){
+    seuset <- RunUMAP(seuset, dims = 1:pcs_for_overview[i])
+    dimnr <- as.character(pcs_for_overview[i])
+    print(dimnr)
+    if (i == 1){
+      plot.list[[dimnr]] <- DimPlot(seuset, reduction = "umap", group.by = umap, combine = TRUE) + ggtitle(paste0("UMAP 1:", dimnr))
+    } else {
+      plot.list[[dimnr]] <- DimPlot(seuset, reduction = "umap", group.by = umap, combine = TRUE) + ggtitle(paste0("UMAP 1:", dimnr)) + theme(legend.position = "none")
+    }
   }
-  else {
-    plot.list[[dimnr]] <- DimPlot(seuset, reduction = "umap", group.by = label.vector[1], combine = TRUE) + ggtitle(paste0("UMAP 1:", dimnr)) + theme(legend.position = "none")
-    plot.list2[[dimnr]] <- DimPlot(seuset, reduction = "umap", group.by = label.vector[2], combine = TRUE) + ggtitle(paste0("UMAP 1:", dimnr)) + theme(legend.position = "none")
-  i = i + 1
-  }
+  #Generate combined plot for umap variabel
+  return(plot.list)
 }
-pdf(paste0("UMAPdiffsettings_", paste(as.character(pcs_for_overview), collapse = "-"), label.vector[1], ".pdf"), width = 20, height = 15)
-CombinePlots(plot.list, nrows = round(length(pcs_for_overview)/3))
-dev.off()
-pdf(paste0("UMAPdiffsettings_", paste(as.character(pcs_for_overview), collapse = "-"), label.vector[2], ".pdf"), width = 20, height = 15)
-CombinePlots(plot.list2, nrows = round(length(pcs_for_overview)/3))
-dev.off()
+#Apply to each defined umap component in label vector
+for (umap in label.vector) {
+  plot.list <- combine_umap_plot(umap, pcs_for_overview)
+  pdf(paste0(params$resultsdir,"/","UMAPdiffsettings_", paste(as.character(pcs_for_overview), collapse = "-"), umap, ".pdf"), width = 20, height = 15)
+  print(CombinePlots(plot.list, nrows = round(length(pcs_for_overview)/3)))
+  dev.off()
+}
 ```
 
 Based on the heatmaps, elbow (as well as the JackStraw indicating these are significant as well) the first 6 PCs can be used for further analysis.
 
 ```{r}
 # Saving the dataset with the normalized, scaled and identified HVGs (stored in seuset.scnorm@var.genes).
-write.csv(Cells(seuset), file = file.path(params$resultsdir,"cellID_obs.csv"), row.names = FALSE)
-write.csv(Embeddings(seuset, reduction = "umap"), file = file.path(params$resultsdir,"cell_embeddings.csv"))
 saveRDS(seuset, file= paste(params$resultsdir,"seusetv3_scnormHVG_velocity.rds", sep="/"))
 ```
 ```{r}

@@ -1,36 +1,35 @@
 ---
 title: "SORT-seq dataset with velocity preparations"
 params:
-  ERCC_pct_max: 20
-  MT_genes_file: /Users/tilman_work/Documents/Projects/R/scRNA-seq/data/MT_genes.txt
-  add.qc.ERCC: false
-  add.qc.MT: false
-  amount_cells_expr: 0
+  kb.dir: /Users/tilman_work/Documents/Projects/R/testset/kallistobus
   barcode_file: /Users/tilman_work/Documents/Projects/R/scRNA-seq/data/barcode_384.tab
+  mt_genes_file: /Users/tilman_work/Documents/Projects/R/scRNA-seq/data/MT_genes.txt 
+  meta_data: /Users/tilman_work/Documents/Projects/R/scRNA-seq/data/pbmc_meta_test.csv  #used when extract_phenotypes = FALSE
+  resultsdir: /Users/tilman_work/Documents/Projects/R/scRNA-seq/output
+  plate_variables: Genome,Method,Lineage,Timepoint,Replicate,Library,Well #used to extract meta data from cell names
   combined_variables_to_id: Method,Lineage,Timepoint,Library
-  confounders_to_test: Library,Lineage,Timepoint
+  umap_cols: Method,Timepoint #can be seperated by comma for multiple columns
+  confounders_to_test: Library
+  lab_col: Library
+  remove_bc: true #enable for inhouse-celseq2 - replaces barcode with plate-id
+  run.plate_qc: true  #enable for inhouse-celseq2
+  extract_phenotypes: true #enable for inhouse-celseq2
+  add.spikes.ercc: false
+  add.spikes.mt: true
+  amount_cells_expr: 0
   explore_violin: SOX2,GAPDH
-  extract_phenotypes: false
+  ercc_pct_max: 20
   filtering: 'no'
   gene_tresh: 0
-  kb.dir: /Users/tilman_work/Documents/Projects/R/testset/kallistobus
-  lab_col: Library
   mt_pct_max: 50
-  nHVG: 2000
-  n_bc: 384
-  meta_data: "/Users/tilman_work/Documents/Projects/R/scRNA-seq/data/phenodata_kbordered.csv"
-  new_col_pattern: -S
-  old_col_pattern: _S
+  nhvg: 2000
+  new_col_pattern: _S
+  old_col_pattern: ""
   pcs_for_overview: '10,20,30,40,50'
   pcs_max: 70
-  plate_variables: Genome,Method,Lineage,Timepoint,Replicate,Library,Well
-  resultsdir: /Users/tilman_work/Documents/Projects/R/scRNA-seq/output
-  run.plate_qc: true
-  remove_bc: TRUE
   subset_id: ''
   total_counts_tresh: 1000
   total_feat_tresh: 500
-  umap_cols: Method
   vars_to_regress: nCount_sf,nFeature_sf
 output:
   pdf_document:
@@ -47,9 +46,13 @@ output:
     system(paste("mkdir -p ", params$resultsdir))
     ```
     ## *Setting Parameters:* 
-    To keep in mind: 
+    To keep in mind:
+    Plate based assays:
     - Make sure the plates to combine all have the same amount of "_" separated fields in their folder names. These fields will be used to set up the phenodata columns. - The Combined ID per plate, will be used for labelling in figures.
-    
+    Droplet based assay (experimental)
+    - You can provide custom meta-data if you dont want to derive the phenotype fields from sample names when extract_phenotypes is set to FALSE. 
+    - Set up a .csv file with minimally the following base columns: Sample,Genome,Barcode,Library. The sample,genome and barcode columns will be combined to match the barcode ids in the spliced/unspliced count matrix. Additional columns can be provided for statistical analysis, such as umap embeddings. An example can be found in the data folder (pbmc_meta_test.csv). 
+    - Set the meta_data parameter to the path of the csv file
     ```{r include = FALSE}
     # Loading the important repositories # 
     require("devtools")
@@ -108,6 +111,15 @@ spliced.data.df = read_kb_counts(
   replace_col_old = params$old_col_pattern,
   replace_col_with = params$new_col_pattern
   )
+#Create fake meta data csv 
+#meta <- data.frame(cells=colnames(spliced.data.df))
+#phenodata <- separate(meta, col = "cells", into = c("Genome","Sample", "Barcode"), sep = "_")
+#meta2 <- data.frame(sample=phenodata$sample, barcode=phenodata$barcode, genome=phenodata$Genome)
+#meta2$library <- sample(c("A","B","C"), nrow(meta2), replace = T)
+#write.csv(meta2, paste(params$resultsdir,"pbmc_meta_test.csv", sep="/"), row.names = F)
+
+  
+  
 ```
 
 ```{r}
@@ -150,7 +162,8 @@ subset_cells <- intersect(colnames(spliced.data.df), colnames(unspliced.data.df)
 unspliced.data.df <- unspliced.data.df[,subset_cells]
 
 # no. of plates:
-length(colnames(spliced.data.df))/params$n_bc
+n_bc <- length(readLines(file(params$barcode_file)))
+length(colnames(spliced.data.df))/n_bc
 ```
 
 
@@ -165,10 +178,10 @@ if (params$extract_phenotypes) {
   }
   write.csv(phenodata, paste(params$resultsdir,"phenodata_kbordered.csv", sep="/"))
 } else {
-  #The user supplies phenotdata (at least library info) via a tab/csv delimited file. 
   phenodata_all <- read_pheno_data(path = params$meta_data, 
                                data.df = data.df, 
-                               combined_variables_to_id = combined_variables_to_id)
+                               combined_variables_to_id = combined_variables_to_id,
+                               lab_col = params$lab_col)
   phenodata <- phenodata_all[[1]]
   pheno_matched <- phenodata_all[[2]]
   #Sanity check
@@ -217,12 +230,12 @@ Setting thresholds for the removal of genes too lowly expressed in too few cells
 # Filtering on genes considered expressed: above a treshold for a set amount of cells:
 control_features <- vector("list", 0) 
 # Adding spike-in information: (Testing)
-if (params$add.qc.MT) {
-  MT_genes <- read.table(params$MT_genes_file)[,1]
+if (params$add.spikes.mt) {
+  MT_genes <- read.table(params$mt_genes_file)[,1]
   isSpike(sce, "MT") <- rownames(sce)[rownames(sce) %in% MT_genes]
   control_features[["MT"]] <- isSpike(sce, "MT")
 }
-if (params$add.qc.ERCC) {
+if (params$add.spikes.ercc) {
   isSpike(sce, "ERCC") <- grepl("^ERCC2-", rownames(sce))
     control_features[["ERCC"]] <- isSpike(sce, "ERCC")
 }
@@ -232,11 +245,11 @@ sce <- calculateQCMetrics(
 
 # Removal of cells causing a warning:
 NaN_cells <- NULL 
-if (params$add.qc.MT && params$add.qc.ERCC) {
+if (params$add.spikes.mt && params$add.spikes.ercc) {
   NaN_cells <- unique(c(colnames(sce)[sce$pct_counts_ERCC == "NaN"], colnames(sce)[sce$pct_counts_MT == "NaN"]))
-} else if (params$add.qc.MT) {
+} else if (params$add.spikes.mt) {
   NaN_cells <- c(colnames(sce)[sce$pct_counts_MT == "NaN"])
-} else if (params$add.qc.ERCC) {
+} else if (params$add.spikes.ercc) {
   NaN_cells <- c(colnames(sce)[sce$pct_counts_ERCC == "Nan"])
 }
 if (!is.null(NaN_cells)) {
@@ -278,12 +291,12 @@ plot.list = list(
   p2 = plotColData(sce, y = "total_features_by_counts", x = "Library")
   )
 # Add ERCC to multiplot if present
-if (params$add.qc.ERCC) {
+if (params$add.spikes.ercc) {
   plot.list[['p3']] <- plotColData(sce,
             x = "total_features_by_counts", 
             y = "pct_counts_ERCC", colour = params$lab_col)
 }
-if (params$add.qc.MT) {
+if (params$add.spikes.mt) {
   plot.list[['p4']] <- plotColData(sce,
             x = "total_features_by_counts", 
             y = "pct_counts_MT", colour = params$lab_col)
@@ -312,10 +325,10 @@ names(filters) <- base.filters
 filters[["filter_by_expr_features"]] <- sce$total_features_by_counts >= params$total_feat_tresh
 filters[["filter_by_total_counts"]] <- sce$total_counts >= params$total_counts_tresh
 #Optional filter conditions
-if (params$add.qc.ERCC) {
-  filters[["filter_by_ercc"]] <- sce$pct_counts_ERCC < params$ERCC_pct_max 
+if (params$add.spikes.ercc) {
+  filters[["filter_by_ercc"]] <- sce$pct_counts_ERCC < params$ercc_pct_max 
 }
-if (params$add.qc.MT) {
+if (params$add.spikes.mt) {
   filters[["filter_by_mt"]] <- sce$pct_counts_MT < params$mt_pct_max
 }
 #Reduce filtered logis
@@ -373,7 +386,7 @@ hist(sce_qc$total_features_by_counts, breaks = 100)
 abline(v= params$total_feat_tresh, col = "red")
 dev.off()
 #Create MT plot before and after filtering
-if(params$add.qc.MT) {
+if(params$add.spikes.mt) {
   pdf(paste(params$resultsdir,"MT_before+aftercellsFiltering.pdf", sep="/"))
   par(mfrow=c(2,2))
   print(plotColData(sce,
@@ -387,7 +400,7 @@ if(params$add.qc.MT) {
 }
 
 #Create ERCC plot before and after filltering
-if (params$add.qc.ERCC) {
+if (params$add.spikes.ercc) {
   pdf(paste(params$resultsdir,"ERCC_before+aftercellsFiltering.pdf", sep="/"))
   par(mfrow=c(2,2))
   
@@ -627,14 +640,14 @@ control_features_us_match <- vector("list", 0)
 sce_usmatch <- sce_us[genes_use,cells_use]
 
 # Adding spike-in information:
-if (params$add.qc.MT) {
+if (params$add.spikes.mt) {
   isSpike(sce_us, "MT") <- grepl("^MT-", rownames(sce_us))
   control_features_us[["MT"]] <- isSpike(sce_us, "MT")
   #matched sce object
   isSpike(sce_usmatch, "MT") <- grepl("^MT-", rownames(sce_usmatch))
   control_features_us_match[["MT"]] <- isSpike(sce_usmatch, "MT")
 }
-if (params$add.qc.ERCC) {
+if (params$add.spikes.ercc) {
   isSpike(sce_us, "ERCC") <- grepl("^ERCC-", rownames(sce_us))
   control_features_us[["ERCC"]] <- isSpike(sce_us, "ERCC")
   #matched sce object
@@ -710,12 +723,12 @@ seu <- NormalizeData(
 seu <- FindVariableFeatures(
     object = seu, assay = "sf",
     selection.method = "vst",
-    nfeatures = params$nHVG)
+    nfeatures = params$nhvg)
 
 seu <- FindVariableFeatures(
     object = seu, assay = "uf",
     selection.method = "vst",
-    nfeatures = params$nHVG)
+    nfeatures = params$nhvg)
 
 # top 10 most variable genes
 top20 <- head(VariableFeatures(seu, assay = "sf"), 20)

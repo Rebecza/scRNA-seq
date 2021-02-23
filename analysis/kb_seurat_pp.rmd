@@ -101,7 +101,7 @@ output:
     toc_depth: 2
     number_sections: true
 ---
-```{r include = FALSE, linewidth=60}
+```{r include = FALSE}
 #Custom listings markdown template: https://stackoverflow.com/questions/21402157/colour-for-r-code-chunk-in-listings-package/21468454
 
 # Plate based assays:
@@ -114,7 +114,7 @@ output:
  # Additional columns can be provided for statistical analysis, such as umap embeddings. An example can be found in the data folder (pbmc_meta_test.csv).
  # Set the meta_data parameter to the path of the csv file
 here::set_here()
-knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(tidy.opts=list(width.cutoff=60),tidy=TRUE)
 source(here::here("../src/read_kb_dataset_s2s.R"),local = knitr::knit_global())
 source(here::here("../src/plate_QC.R"), local = knitr::knit_global())
 source(here::here("../src/get_pheno_data.R"), local = knitr::knit_global())
@@ -158,7 +158,7 @@ Scater usable object. Scater will be used to look into the quality of the data
 and to help with filtering out bad cells or genes.
 
 Location of the file:
-```{r loading dataset, echo = TRUE, warning = FALSE, linewidth=60}
+```{r loading dataset, echo = TRUE, warning = FALSE}
 ## Splice seperated dataset: 
 # Optional edits on cell names: This only runs if a
 # substring that needs replacement was defined in parameters (old_col_pattern):
@@ -180,7 +180,7 @@ spliced.data.df = read_kb_counts(
   )
 ```
 
-```{r, linewidth=60}
+```{r}
 # Percentage of reads unspliced
 sum(unspliced.data.df)/(sum(spliced.data.df)+sum(unspliced.data.df))
 # Make columnnames the same (order) between matrices
@@ -195,7 +195,7 @@ data.df <- spliced.data.df
 ```
 
 ### Perform subsetting of dataset (optional)
-```{r filtering certain entries, linewidth=60}
+```{r filtering certain entries}
 
 if (params$filtering == "out"){
   # checking the amount of cells in the dataset before filtering
@@ -226,7 +226,7 @@ length(colnames(spliced.data.df))/n_bc
 ```
 
 
-```{r phenotable, linewidth=60}
+```{r phenotable}
 ## Setting up the phenotable ##
 if (params$extract_phenotypes) {
   phenodata_all <- get_pheno_data(data.df = data.df,
@@ -257,7 +257,7 @@ if (params$extract_phenotypes) {
 
 Running QC over the plates: are there
 
-```{r, linewidth=60}
+```{r}
 if (params$run.plate_qc) {
   ## Running plate QC: are there certain patterns?
   out.file <- paste(params$resultsdir,"PlateDiag_lndscp.pdf",sep="/")
@@ -274,7 +274,7 @@ if (params$run.plate_qc) {
 
 #### Creating a SingleCellExperiment object for confounder check
 
-```{r build SCE, linewidth=60}
+```{r build SCE}
 # df -> matrix + phenodata -> SCE
 #count_matrix <- as.matrix(data.df)
 sce <- SingleCellExperiment(assays = list(counts = data.df), 
@@ -293,7 +293,7 @@ print(missing.name)
 Setting thresholds for the removal of genes too lowly expressed in too few
 cells.
 
-```{r, linewidth=60}
+```{r}
 # Filtering on genes considered expressed: above a treshold for a set amount of cells:
 control_features <- vector("list", 0)
 # Adding spike-in information: (Testing)
@@ -328,7 +328,7 @@ if (!is.null(NaN_cells)) {
 
 Manually setting arbitrary count tresholds for the cells considered healthy.
 
-```{r, linewidth=60}
+```{r}
 # Looking at the total number of RNA molecules per sample
 # UMI counts were used for this experiment
 hist(sce$total_counts, breaks = 100)
@@ -358,7 +358,7 @@ Also cells that are smaller will have relatively more spike-in allocated reads,
 and some cell types might have higher numbers of mitochondria, which is
 important to consider setting this boundary.
 
-```{r, linewidth=60}
+```{r}
 # Using Scater to plot percentages of spikes
 # Only works if meta data available.
 plot.list = list(
@@ -390,7 +390,7 @@ each dot represents a cell. Color labelled on `r params$lab_col`.
 Using manual thresholds for filtering out the outliers in the dataset and using
 an automatic approach, based on a PCA on the quality metrics.
 
-```{r, linewidth=60}
+```{r}
 #---------------------------
 ## Manually set thresholds for filtering of the cells:
 #---------------------------
@@ -428,7 +428,7 @@ table(filters[["filter_by_mt"]])
 table(sce$use)
 ```
 
-```{r filter cells,  linewidth=60}
+```{r filter cells}
 # The quality check-passing cells are stored in the SCE-object in $use selection
 # of the counts table.
 
@@ -456,7 +456,7 @@ saveRDS(sce_qc, file = paste(params$resultsdir,"spliced_qc_counts.rds",sep="/"))
 ```
 Plotting the distributions of the dataset before and after filtering.
 
-```{r filtered dataset: compare before/after filtering, linewidth=60}
+```{r filtered dataset: compare before/after filtering}
 
 #saveRDS(sce, file = "qc_counts.rds")
 
@@ -510,7 +510,7 @@ In the dataset `r genes_expressed` are considered expressed.
 PCA on only the endogenous genes is used to evaluate the influence of the
 confounding factors.
 
-```{r endogenous dataset for confounding factors,  linewidth=60}
+```{r endogenous dataset for confounding factors}
 #------------------------------
 # Filter endogenous (add scenario for alle qc combinaties)
 #------------------------------
@@ -535,7 +535,7 @@ plotHighestExprs(sce_qc)
 Summary of filtering genes: Genes that had less than `r params$amount_cells_expr` cells with an expression less than `r params$gene_tresh`. 
 For the genes in this dataset genes that were removed `r table(keep_feature)` genes were kept. Spikes: `r spikeNames(sce)` were saved in
 the dataset and used for quality metrics calculations.
-```{r PCA on raw data,  linewidth=60}
+```{r PCA on raw data}
 # Plotting the raw data without any transformation.
 sce_endo <- runPCA(
   sce_endo,
@@ -556,7 +556,7 @@ reducedDimNames(sce_endo)
 # Raw log2-transformation
 To compare with other normalization methods.
 
-```{r raw log2-transformation,  linewidth=60}
+```{r raw log2-transformation}
 assay(sce_endo, "logcounts_raw") <- log2(counts(sce_endo) + 1)
 
 # plotReducedDim and plotPCA will do the same, with plotPCA you leave out the
@@ -579,7 +579,7 @@ Make the seurat object, 'seuset'. In this step you could filter the cells
 again, these however already have been filtered before in 'table clean-up',
 where the genes were taken that have >2 cells that have an expression >1.
 
-```{r create seurat object, linewidth=60}
+```{r create seurat object}
 seuset <-
   CreateSeuratObject(
   counts = counts(sce_endo),
@@ -589,7 +589,7 @@ seuset <-
   )
 ```
 
-```{r,  linewidth=60}
+```{r}
 # looking into the dataset
 VlnPlot(
     object = seuset,
@@ -614,7 +614,7 @@ FeatureScatter(
 
 ```
 
-```{r,  linewidth=60}
+```{r}
 # Seurat normalization: "a global-scaling normalization method LogNormalize that
 # normalizes the gene expression measurements for each cell by the total
 # expression, multiplies this by a scale factor (10,000 by default), and
@@ -651,7 +651,7 @@ saveRDS(seuset, paste(params$resultsdir,"seuset_qc+norm.rds",sep="/"))
 
 #### Check confounders before & after normalization
 
-```{r seurat objects to sce,  linewidth=60}
+```{r seurat objects to sce}
 # Only take the entries that are matchable with the counttable entries:
 filtered_cells <- intersect(rownames(phenodata), 
                             colnames(seuset@assays$sf@data))
@@ -681,7 +681,7 @@ sce_seunorm <- calculateQCMetrics(
 # Identifying the variation caused by each confounding factor
 #### Before & after normalization
 
-```{r check confounders in raw dataset,  linewidth=60}
+```{r check confounders in raw dataset}
 
 explanatory_variables <- as.factor(c(confounders_to_test, 
                                      "total_features_by_counts", "total_counts"))
@@ -718,7 +718,7 @@ multiplot(p1, p2)
 ```
 
 
-```{r,  linewidth=60}
+```{r}
 # running PCA on the normalized counts
 sce_seunorm <- runPCA(
   sce_seunorm, ncomponents = 20,
@@ -748,7 +748,7 @@ plotPCA(sce_seunorm,
 
 Select the same cells and genes as in the spliced dataset
 
-```{r build SCE 2,  linewidth=60}
+```{r build SCE 2}
 # df -> matrix -> SCE + phenodata
 cells_use <- colnames(sce_endo)
 genes_use <- rownames(sce_endo)
@@ -827,7 +827,7 @@ dev.off()
 ```
 ## Build Seurat object with unspliced and spliced assay
 
-```{r,  linewidth=60}
+```{r}
 unspliced_match <- unspliced.data.df[genes_use,cells_use]
 unspliced_match <- as.matrix(unspliced_match)
 
@@ -849,7 +849,7 @@ seu <- NormalizeData(
 
 ## Highly variable genes & Scaling of the gene expression values
 
-```{r, linewidth=60}
+```{r}
 # FindVariableFeatures plots the dispersion (= a normalized measure of
 # cell-to-cell variation), as a function of average expression for each gene. In
 # their tutorial the Satija lab uses the cut-off of 2000 genes.
@@ -898,7 +898,7 @@ seu <- ScaleData(
 ```
 
 ## Running PCA analysis on the scaled data
-```{r running PCA, linewidth=60}
+```{r running PCA}
 seuset <- seu
 rm(seu)
 DefaultAssay(seuset) <- "sf"
@@ -914,7 +914,7 @@ length(seuset[["uf"]]@var.features)
 ```
 
 ## Visualizing PCA results:
-```{r, linewidth=60}
+```{r}
 #PrintPCA(object = seuset.scnorm, pcs.print = 1:5, genes.print = 5, use.full = FALSE)
 
 VizDimLoadings(object = seuset, dims = 1:10, reduction = "pca")
@@ -957,7 +957,7 @@ dev.off()
 
 ## Perform JackStraw Permutations to find significant PCs
 
-```{r running JackStraw, linewidth=60}
+```{r running JackStraw}
 #seuset.jack <- JackStraw(
 #    object = seuset,
 #    num.replicate = 100
@@ -965,20 +965,20 @@ dev.off()
 #seuset.jack <- ScoreJackStraw(seuset.jack, dims = 1:20)
 ```
 
-```{r, linewidth=60}
+```{r}
 #JackStrawPlot(object = seuset.jack, dims = 1:20)
 ```
 
 ## Plotting Elbow plot to identify significant PCs
 This plot displays the standard deviations of the PCs and the
 
-```{r, linewidth=60}
+```{r}
 ElbowPlot(object = seuset, ndims = 35)
 ```
 
 ## Overview of different UMAPs with varying dimensional input
 
-```{r, linewidth=60}
+```{r}
 #Generating a combined UMAP plot with various defined settings. Only a legend in
 #the first plotted (since this will be the same for the others). Generating a
 #combined plot with only a legend in the first plotted (since this will be the
@@ -1031,7 +1031,7 @@ for (umap in label.vector) {
 Based on the heatmaps, elbow (as well as the JackStraw indicating these are
 significant as well) the first 6 PCs can be used for further analysis.
 
-```{r, linewidth=60}
+```{r}
 # Saving the dataset with the normalized, scaled and identified HVGs (stored in seuset.scnorm@var.genes).
 saveRDS(seuset, file= paste(params$resultsdir,"seusetv3_scnormHVG_velocity.rds", sep="/"))
 ```

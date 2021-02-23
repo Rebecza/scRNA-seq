@@ -1,36 +1,97 @@
 ---
 title: "SORT-seq dataset with velocity preparations"
 params:
-  kb.dir: /Users/tilman_work/Documents/Projects/R/testset/kallistobus
-  barcode_file: /Users/tilman_work/Documents/Projects/R/scRNA-seq/data/barcode_384.tab
-  mt_genes_file: /Users/tilman_work/Documents/Projects/R/scRNA-seq/data/MT_genes.txt
-  #meta_data: /Users/tilman_work/Documents/Projects/R/scRNA-seq/data/pbmc_meta_test.csv  #used when extract_phenotypes = FALSE
-  resultsdir: /Users/tilman_work/Documents/Projects/R/scRNA-seq/output
-  plate_variables: Genome,Method,Lineage,Timepoint,Replicate,Library,Well #used to extract meta data from cell names
-  combined_variables_to_id: Method,Lineage,Timepoint,Library
-  umap_cols: Method,Timepoint  #can be seperated by comma for multiple columns
-  confounders_to_test: Library
-  lab_col: Library
-  remove_bc: true #enable for inhouse-celseq2 - replaces barcode with plate-id
-  run.plate_qc: true  #enable for inhouse-celseq2
-  extract_phenotypes: true #enable for inhouse-celseq2
-  add.spikes.ercc: true
-  add.spikes.mt: true
-  amount_cells_expr: 0
-  explore_violin: SOX2,GAPDH
-  ercc_pct_max: 20
-  filtering: 'no'
-  gene_tresh: 0
-  mt_pct_max: 50
-  nhvg: 2000
-  new_col_pattern: _S
-  old_col_pattern: ""
-  pcs_for_overview: '10,20,30,40,50'
-  pcs_max: 70
-  subset_id: ''
-  total_counts_tresh: 1000
-  total_feat_tresh: 500
-  vars_to_regress: nCount_sf,nFeature_sf
+  kb.dir: 
+    label: "kb-python sample directory"
+    value: /Users/tilman_work/Documents/Projects/R/testset/kallistobus
+  barcode_file: 
+    label: "tab delimtied barcode file with plate ids (col 1) and barcodes (col 2)"
+    value: /Users/tilman_work/Documents/Projects/R/scRNA-seq/data/barcode_384.tab
+  mt_genes_file:
+    label: "txt file with mitchondrial gene names"
+    value: /Users/tilman_work/Documents/Projects/R/scRNA-seq/data/MT_genes.txt
+  meta_data:
+    label: "Meta data csv file"
+    value: /Users/tilman_work/Documents/Projects/R/scRNA-seq/data/pbmc_meta_test.csv  #used when extract_phenotypes = FALSE
+  resultsdir:
+     label: "Output directory for qc files" 
+     value: /Users/tilman_work/Documents/Projects/R/scRNA-seq/output
+  plate_variables: 
+      label: "Meta data variables to extract from sample names (if present)"
+      value: Genome,Method,Lineage,Timepoint,Replicate,Library,Well 
+  combined_variables_to_id: 
+      label: "Meta data variables to add combined id column" 
+      value: Method,Lineage,Timepoint,Library
+  umap_cols: 
+      label: "Meta data variables for Seurat's RunUMAP. Can be seperated by comma for multiple values"
+      value: Method,Timepoint  
+  confounders_to_test: 
+      label: "Meta data variabel for confounder testing"
+      value: Library
+  lab_col: 
+      label: "Library meta data column "
+      value: Library
+  remove_bc: 
+      label: "Replace barcode id with plate id in sample names. Enable for inhouse-celseq"
+      value: true 
+  run.plate_qc: 
+      label: "Run plate qc. Enable for inhouse-celseq"
+      value: true
+  extract_phenotypes: 
+      label: "Extract meta data information from filenames. Uses columns defined in plate_variables" 
+      value: true
+  add.spikes.ercc: 
+      label: "Perform ercc spike-ins qc (if present)"
+      value: true
+  ercc_pct_max: 
+      label: "max percentage ercc spike-ins"
+      value: 20
+  add.spikes.mt: 
+      label: "Perform mitochondrial qc"
+      value: true
+  mt_pct_max: 
+      label: "max percentage mitochondrial genes"
+      value: 50
+  amount_cells_expr: 
+      label: "threshold for amount of cells considered expressed"
+      value: 0
+  total_counts_tresh: 
+      label: "threshold for total UMI counts"
+      value: 1000
+  total_feat_tresh: 
+      label: "threshold for total number of feature (genes) per proportion of cells."
+      value: 500
+  gene_tresh: 
+      label: "threshold for total number of genes after qc"
+      value: 0
+  nhvg: 
+      label: "threshold for number of variables features (genes)"
+      value: 2000
+  explore_violin: 
+      label: "violin expression plot for genes (can be seperated by comma)."
+      value: SOX2,GAPDH
+  filtering: 
+      label: "perform filtering" 
+      choices: ['in', 'out', 'none']
+      value: 'none'
+  new_col_pattern:
+      label: "new column pattern"
+      value:  _S
+  old_col_pattern: 
+      label: "old column pattern"
+      value: ""
+  pcs_for_overview:
+      label: "principal components for overview in combined umap plot"
+      value: '10,20,30,40,50'
+  pcs_max: 
+      label: "max number of principal components to visualize"
+      value: 70
+  subset_id: 
+      label: "subset ids"
+      value: ''
+  vars_to_regress:
+      label: "variables to perform regression analysis"
+      value:  nCount_sf,nFeature_sf
 output:
   pdf_document:
     pandoc_args: --listings

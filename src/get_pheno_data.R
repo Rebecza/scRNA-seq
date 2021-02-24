@@ -21,10 +21,8 @@ read_pheno_data <- function(path=NULL, data.df=NULL, combined_variables_to_id="L
   print(colnames(phenodata))
   #Combine genome and sample column
   base_cols <- c("Genome","Sample","Barcode")
+  base_cols <- c(base_cols,lab_col)
   `%notin%` <- Negate(`%in%`)
-  if (lab_col %notin% colnames(phenodata)) {
-    stop("Library column not found!. Make sure that Library is a column in meta data! ")
-  }
   if (base_cols %notin% colnames(phenodata)) {
     stop("Base columns not found. The meta should minimally contain columns: sample,genome,barcode and library")
   }

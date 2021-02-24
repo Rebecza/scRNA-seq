@@ -24,7 +24,7 @@ params:
       value: Library
   umap_cols: 
       label: "umap_cols -- meta data fields for Seurat's RunUMAP. Can be seperated by comma for multiple values"
-      value: Method,Timepoint  
+      value: Method  
   confounders_to_test: 
       label: "confounders_to_test -- meta data variabel for confounder testing"
       value: Library
@@ -77,10 +77,10 @@ params:
       value: 70
   vars_to_regress_sf:
       label: "vars_to_regress -- variables to perform regression analysis (spliced)"
-      value:  nCount_sf,nFeature_sf
+      value:  nCount_sf
   vars_to_regress_uf:
       label: "vars_to_regress -- variables to perform regression analysis (unspliced)"
-      value:  nCount_uf,nFeature_uf
+      value:  nCount_uf
   new_col_pattern:
       label: "new_col_pattern -- new column pattern"
       value: ""

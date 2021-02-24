@@ -5,23 +5,23 @@ params:
     label: "kb-python sample directory"
     value: /Users/tilman_work/Documents/Projects/R/testset/kallistobus
   barcode_file: 
-    label: "tab delimtied barcode file with plate ids (col 1) and barcodes (col 2)"
+    label: "tab delimtied file with barcode sequences. For plate based method, use two column layout"
     value: /Users/tilman_work/Documents/Projects/R/scRNA-seq/data/barcode_384.tab
   mt_genes_file:
     label: "txt file with mitchondrial gene names"
     value: /Users/tilman_work/Documents/Projects/R/scRNA-seq/data/MT_genes.txt
   meta_data:
-    label: "Meta data csv file"
+    label: "Meta data csv file. Used when extract_meta_columns is not set"
     value: /Users/tilman_work/Documents/Projects/R/scRNA-seq/data/pbmc_meta_test.csv  #used when extract_phenotypes = FALSE
+  extract_meta_columns: 
+    label: "Meta data variables to extract from sample names (if present)"
+    value: Genome,Method,Lineage,Timepoint,Replicate,Library,Well 
   resultsdir:
      label: "Output directory for qc files" 
      value: /Users/tilman_work/Documents/Projects/R/scRNA-seq/output
-  plate_variables: 
-      label: "Meta data variables to extract from sample names (if present)"
-      value: Genome,Method,Lineage,Timepoint,Replicate,Library,Well 
-  combined_variables_to_id: 
-      label: "Meta data variables to add combined id column" 
-      value: Method,Lineage,Timepoint,Library
+  meta_group_id: 
+      label: "Meta data variables to combine for grouping in visualization. Adds an extra column to meta data" 
+      value: Library
   umap_cols: 
       label: "Meta data variables for Seurat's RunUMAP. Can be seperated by comma for multiple values"
       value: Method,Timepoint  
@@ -34,12 +34,10 @@ params:
   remove_bc: 
       label: "Replace barcode id with plate id in sample names. Enable for inhouse-celseq"
       value: true 
-  run.plate_qc: 
+  method: 
       label: "Run plate qc. Enable for inhouse-celseq"
-      value: true
-  extract_phenotypes: 
-      label: "Extract meta data information from filenames. Uses columns defined in plate_variables" 
-      value: true
+      choices: ['plate', 'droplet']
+      value: 'plate'
   add.spikes.ercc: 
       label: "Perform ercc spike-ins qc (if present)"
       value: true
@@ -112,9 +110,12 @@ output:
  # Set the meta_data parameter to the path of the csv file
 here::set_here()
 knitr::opts_chunk$set(tidy.opts=list(width.cutoff=60),tidy=TRUE)
-source(here::here("../src/read_kb_dataset_s2s.R"),local = knitr::knit_global())
-source(here::here("../src/plate_QC.R"), local = knitr::knit_global())
-source(here::here("../src/get_pheno_data.R"), local = knitr::knit_global())
+#source(here::here("../src/read_kb_dataset_s2s.R"),local = knitr::knit_global())
+#source(here::here("../src/plate_QC.R"), local = knitr::knit_global())
+#source(here::here("../src/get_pheno_data.R"), local = knitr::knit_global())
+source("../src/read_kb_dataset_s2s.R")
+source("../src/plate_QC.R")
+source("../src/get_pheno_data.R")
 system(paste("mkdir -p ", params$resultsdir))
 # Loading the important repositories #
 require("devtools")
@@ -133,8 +134,11 @@ library(plot3D)
 ## unlist parameters ##
 label.vector = unlist(strsplit(params$umap_cols,","))
 # Unique combined ID per plate, for visualization purposes
-plate_variables = unlist(strsplit(params$plate_variables,","))
-combined_variables_to_id = unlist(strsplit(params$combined_variables_to_id,","))
+if( params$extract_meta_columns != "") {
+  extract_meta_columns = unlist(strsplit(params$extract_meta_columns,","))
+}
+# Combined columns for plotting in meta data
+meta_group_id = unlist(strsplit(params$meta_group_id,","))
 # PCs used for different UMAP representations
 pcs_for_overview = as.integer(unlist(strsplit(params$pcs_for_overview,",")))
 #Checking variability explained by confounding factors
@@ -225,12 +229,13 @@ length(colnames(spliced.data.df))/n_bc
 
 ```{r phenotable}
 ## Setting up the phenotable ##
-if (params$extract_phenotypes) {
+if (params$extract_meta_columns != "") {
   phenodata_all <- get_pheno_data(data.df = data.df,
-                                  combined_variables_to_id = combined_variables_to_id, 
-                                  plate_variables= plate_variables)
+                                  combined_variables_to_id = meta_group_id, 
+                                  plate_variables= extract_meta_columns)
   phenodata <- phenodata_all[[1]]
   pheno_matched <- phenodata_all[[2]]
+  pheno_len <- phenodata_all[[3]]
   if (!identical(rownames(phenodata), colnames(spliced.data.df))) {
       stop("meta-data row names and cell ids are different")
   }
@@ -238,10 +243,11 @@ if (params$extract_phenotypes) {
 } else {
   phenodata_all <- read_pheno_data(path = params$meta_data,
                                data.df = data.df,
-                               combined_variables_to_id = combined_variables_to_id,
+                               combined_variables_to_id = meta_group_id,
                                lab_col = params$lab_col)
   phenodata <- phenodata_all[[1]]
   pheno_matched <- phenodata_all[[2]]
+  pheno_ <- phenodata_all[[3]]
   #Sanity check
   if (!identical(rownames(phenodata), colnames(spliced.data.df))) {
       stop("meta-data row names and cell ids are different")
@@ -255,7 +261,7 @@ if (params$extract_phenotypes) {
 Running QC over the plates: are there
 
 ```{r}
-if (params$run.plate_qc) {
+if (params$method == "plate") {
   ## Running plate QC: are there certain patterns?
   out.file <- paste(params$resultsdir,"PlateDiag_lndscp.pdf",sep="/")
   plate_qc(data.df = data.df,
@@ -581,8 +587,7 @@ seuset <-
   CreateSeuratObject(
   counts = counts(sce_endo),
   assay = "sf",
-  meta.data = as.data.frame(colData(sce_endo)[, 1:(length(plate_variables) +
-  1)])
+  meta.data = as.data.frame(colData(sce_endo)[, 1:(pheno_len + 1)])
   )
 ```
 

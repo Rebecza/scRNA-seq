@@ -20,7 +20,7 @@ params:
      label: "Output directory for qc files" 
      value: /Users/tilman_work/Documents/Projects/R/scRNA-seq/output
   meta_group_id: 
-      label: "Meta data variables to combine for grouping in visualization. Adds an extra column to meta data" 
+      label: "Meta data column grouping for visualization. Adds an extra column to meta data" 
       value: Library
   umap_cols: 
       label: "Meta data variables for Seurat's RunUMAP. Can be seperated by comma for multiple values"
@@ -65,25 +65,25 @@ params:
   nhvg: 
       label: "threshold for number of variables features (genes)"
       value: 2000
-  filtering: 
+  cell_id_subset: 
+      label: "cell ids to include/exclude based on cell_id_subset_filter"
+      value: ''    
+  cell_id_subset_filter: 
       label: "perform filtering" 
       choices: ['in', 'out', 'none']
       value: 'none'
   new_col_pattern:
       label: "new column pattern"
-      value:  _S
+      value: ""
   old_col_pattern: 
       label: "old column pattern"
       value: ""
   pcs_for_overview:
       label: "principal components for overview in combined umap plot"
       value: '10,20,30,40,50'
-  pcs_max: 
+  pcs_max_hvg: 
       label: "max number of principal components to visualize"
       value: 70
-  subset_id: 
-      label: "subset ids"
-      value: ''
   vars_to_regress:
       label: "variables to perform regression analysis"
       value:  nCount_sf,nFeature_sf
@@ -134,9 +134,7 @@ library(plot3D)
 ## unlist parameters ##
 label.vector = unlist(strsplit(params$umap_cols,","))
 # Unique combined ID per plate, for visualization purposes
-if( params$extract_meta_columns != "") {
-  extract_meta_columns = unlist(strsplit(params$extract_meta_columns,","))
-}
+extract_meta_columns = unlist(strsplit(params$extract_meta_columns,","))
 # Combined columns for plotting in meta data
 meta_group_id = unlist(strsplit(params$meta_group_id,","))
 # PCs used for different UMAP representations
@@ -148,7 +146,7 @@ confounders_to_test = unlist(strsplit(params$confounders_to_test,","))
 # Regression performed on the following variables:"
 vars_to_regress = unlist(strsplit(params$vars_to_regress,","))
 ```
-## *Cleaning up the counts table, for subset: `r params$subset_id`*
+## *Cleaning up the counts table, for subset: `r params$cell_id_subset`*
 
 ----------------------------------------------------------------------
 
@@ -198,20 +196,20 @@ data.df <- spliced.data.df
 ### Perform subsetting of dataset (optional)
 ```{r filtering certain entries}
 
-if (params$filtering == "out"){
+if (params$cell_id_subset_filter == "out"){
   # checking the amount of cells in the dataset before filtering
   length(colnames(data.df))
   # the amount of cells you retrieve with the filter.
-  length(colnames(data.df[,!grepl(params$subset_id, colnames(data.df)) == TRUE]))
+  length(colnames(data.df[,!grepl(params$cell_id_subset, colnames(data.df)) == TRUE]))
   # filter cells based on the substring.
-  data.df <- data.df[,!grepl(params$subset_id, colnames(data.df)) == TRUE]
-} else if (params$filtering == "in"){
+  data.df <- data.df[,!grepl(params$cell_id_subset, colnames(data.df)) == TRUE]
+} else if (params$cell_id_subset_filter == "in"){
   # checking the amount of cells in the dataset before filtering
   length(colnames(data.df))
   # the amount of cells you retrieve with the filter.
-  length(colnames(data.df[,grepl(params$subset_id, colnames(data.df)) == TRUE]))
+  length(colnames(data.df[,grepl(params$cell_id_subset, colnames(data.df)) == TRUE]))
   # filter cells based on the substring.
-  data.df <- data.df[,grepl(params$subset_id, colnames(data.df)) == TRUE]
+  data.df <- data.df[,grepl(params$cell_id_subset, colnames(data.df)) == TRUE]
 } else {
   print(paste0("No filtering applied. The amount of cells in the dataset remain: ", 
                as.character(length(colnames(data.df)))))
@@ -285,7 +283,7 @@ sce <- SingleCellExperiment(assays = list(counts = data.df),
                             rowData = rownames(data.df))
 ```
 
-```{r params$filtering empty entries, echo = FALSE, linewidth=60}
+```{r filtering empty entries, echo = FALSE, linewidth=60}
 # Checking if the dataset contains genes without a symbol name:
 missing.name <- rownames(sce[is.na(rownames(counts(sce)))])
 print(missing.name)
@@ -907,7 +905,7 @@ DefaultAssay(seuset) <- "sf"
 seuset <- RunPCA(
     object = seuset,
     features = VariableFeatures(object = seuset),
-    npcs = params$pcs_max,
+    npcs = params$pcs_max_hvg,
     ndims.print = 1:5,
     nfeatures.print = 5
 )
@@ -923,12 +921,12 @@ VizDimLoadings(object = seuset, dims = 1:10, reduction = "pca")
 VizDimLoadings(object = seuset, dims = 10:20, reduction = "pca")
 pdf(paste(
   params$resultsdir,
-  paste0("VizPCAplot_PCs1-", params$pcs_max, ".pdf"),
+  paste0("VizPCAplot_PCs1-", params$pcs_max_hvg, ".pdf"),
   sep = "/"
   ),
   width = 20,
   height = 60)
-  VizDimLoadings(object = seuset, dims = 1:params$pcs_max, reduction = "pca")
+  VizDimLoadings(object = seuset, dims = 1:params$pcs_max_hvg, reduction = "pca")
 dev.off()
 
 DimPlot(object = seuset, reduction = "pca", group.by = params$lab_col)
@@ -943,14 +941,14 @@ DimHeatmap(
 
 pdf(paste(
   params$resultsdir,
-  paste0("PCheatmap_PCs1-", params$pcs_max, ".pdf"),
+  paste0("PCheatmap_PCs1-", params$pcs_max_hvg, ".pdf"),
   sep = "/"
   ),
   width = 20,
   height = 60)
   DimHeatmap(
     object = seuset,
-    dims = 1:params$pcs_max,
+    dims = 1:params$pcs_max_hvg,
     cells = 500,
     balanced = TRUE
 )

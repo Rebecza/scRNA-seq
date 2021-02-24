@@ -69,12 +69,6 @@ params:
       label: "cell_id_subset_filter -- filter options for cell_id_subset" 
       choices: ['in', 'out', 'none']
       value: 'none'
-  new_col_pattern:
-      label: "new_col_pattern -- new column pattern"
-      value: ""
-  old_col_pattern: 
-      label: "old_col_pattern -- old column pattern"
-      value: ""
   pcs_for_overview:
       label: "pcs_for_overview -- principal components for overview in combined umap plot"
       value: '10,20,30,40,50'
@@ -84,6 +78,12 @@ params:
   vars_to_regress:
       label: "vars_to_regress -- variables to perform regression analysis"
       value:  nCount_sf,nFeature_sf
+  new_col_pattern:
+      label: "new_col_pattern -- new column pattern"
+      value: ""
+  old_col_pattern: 
+      label: "old_col_pattern -- old column pattern"
+      value: ""
 output:
   pdf_document:
     pandoc_args: --listings

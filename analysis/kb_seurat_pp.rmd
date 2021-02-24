@@ -75,9 +75,12 @@ params:
   pcs_max_hvg: 
       label: "pcs_max_hvg -- max number of principal components to visualize"
       value: 70
-  vars_to_regress:
-      label: "vars_to_regress -- variables to perform regression analysis"
+  vars_to_regress_sf:
+      label: "vars_to_regress -- variables to perform regression analysis (spliced)"
       value:  nCount_sf,nFeature_sf
+  vars_to_regress_uf:
+      label: "vars_to_regress -- variables to perform regression analysis (unspliced)"
+      value:  nCount_uf,nFeature_uf
   new_col_pattern:
       label: "new_col_pattern -- new column pattern"
       value: ""
@@ -141,7 +144,9 @@ confounders_to_test = unlist(strsplit(params$confounders_to_test,","))
 # Marker genes for violin plots
 #explore_violin = c("SOX2","GAPDH")
 # Regression performed on the following variables:"
-vars_to_regress = unlist(strsplit(params$vars_to_regress,","))
+vars_to_regress_sf = unlist(strsplit(params$vars_to_regress_sf,","))
+vars_to_regress_uf = unlist(strsplit(params$vars_to_regress_uf,","))
+
 ```
 ## *Cleaning up the counts table, for subset: `r params$cell_id_subset`*
 
@@ -158,7 +163,7 @@ Location of the file:
 ## Splice seperated dataset: 
 # Optional edits on cell names: This only runs if a
 # substring that needs replacement was defined in parameters (old_col_pattern):
-remove_bc == FALSE
+remove_bc = FALSE
 if (params$method == "plate") {
   remove_bc = TRUE
 }
@@ -887,12 +892,12 @@ seu[["sf"]]@var.features[1:10]
 # Optional regression is performed here.
 all.genes <- rownames(seuset)
 seu <- ScaleData(
-    object = seu,  vars.to.regress = vars_to_regress,
+    object = seu,  vars.to.regress = vars_to_regress_sf,
     assay = "sf",
     features = all.genes
 )
 seu <- ScaleData(
-    object = seu,  vars.to.regress = vars_to_regress,
+    object = seu,  vars.to.regress =  vars_to_regress_uf,
     assay = "uf",
     features = all.genes
 )

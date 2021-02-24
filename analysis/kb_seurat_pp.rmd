@@ -67,9 +67,6 @@ params:
   nhvg: 
       label: "threshold for number of variables features (genes)"
       value: 2000
-  explore_violin: 
-      label: "violin expression plot for genes (can be seperated by comma)."
-      value: SOX2,GAPDH
   filtering: 
       label: "perform filtering" 
       choices: ['in', 'out', 'none']
@@ -143,7 +140,7 @@ pcs_for_overview = as.integer(unlist(strsplit(params$pcs_for_overview,",")))
 #Checking variability explained by confounding factors
 confounders_to_test = unlist(strsplit(params$confounders_to_test,","))
 # Marker genes for violin plots
-explore_violin = unlist(strsplit(params$explore_violin,","))
+#explore_violin = c("SOX2","GAPDH")
 # Regression performed on the following variables:"
 vars_to_regress = unlist(strsplit(params$vars_to_regress,","))
 ```
@@ -601,11 +598,11 @@ VlnPlot(
     features = c("nCount_sf"),
     group.by = params$lab_col
 )
-VlnPlot(
-  object = seuset,
-    features = explore_violin,
-    group.by = params$lab_col
-)
+#VlnPlot(
+#  object = seuset,
+#    features = explore_violin,
+#    group.by = params$lab_col
+#)
 FeatureScatter(
     object = seuset,
     feature1 = "nCount_sf",
@@ -636,11 +633,11 @@ VlnPlot(
     features = c("nCount_sf"),
     group.by = params$lab_col
 )
-VlnPlot(
-  object = seuset,
-    features = explore_violin,
-    group.by = params$lab_col
-)
+#VlnPlot(
+#  object = seuset,
+#    features = explore_violin,
+#    group.by = params$lab_col
+#)
 FeatureScatter(
     object = seuset,
     feature1 = "nCount_sf",

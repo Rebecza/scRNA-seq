@@ -15,7 +15,7 @@ params:
     value: /Users/tilman_work/Documents/Projects/R/scRNA-seq/data/pbmc_meta_test.csv  #used when extract_phenotypes = FALSE
   extract_meta_columns: 
     label: "extract_meta_columns -- extracts meta data from sample names. Alternative for meta_data."
-    value: Genome,Method,Lineage,Timepoint,Replicate,Library,Well 
+    value: Genome,Method,Lineage,Timepoint,Replicate,Library,Well
   resultsdir:
      label: "resultsdir -- output directory for qc files" 
      value: /Users/tilman_work/Documents/Projects/R/scRNA-seq/output
@@ -113,9 +113,7 @@ knitr::opts_chunk$set(tidy.opts=list(width.cutoff=60),tidy=TRUE)
 #source(here::here("../src/read_kb_dataset_s2s.R"),local = knitr::knit_global())
 #source(here::here("../src/plate_QC.R"), local = knitr::knit_global())
 #source(here::here("../src/get_pheno_data.R"), local = knitr::knit_global())
-source("../src/read_kb_dataset_s2s.R")
-source("../src/plate_QC.R")
-source("../src/get_pheno_data.R")
+source("../src/utils.R")
 system(paste("mkdir -p ", params$resultsdir))
 # Loading the important repositories #
 require("devtools")
@@ -175,14 +173,14 @@ spliced.data.df = read_kb_counts(
   replace_col_old = params$old_col_pattern,
   replace_col_with = params$new_col_pattern
   )
-  unspliced.data.df = read_kb_counts(
-  params$kb.dir,
-  "unspliced",
-  barcode_file = params$barcode_file,
-  remove_bc = remove_bc,
-  replace_col_old = params$old_col_pattern,
-  replace_col_with = params$new_col_pattern
-  )
+unspliced.data.df = read_kb_counts(
+params$kb.dir,
+"unspliced",
+barcode_file = params$barcode_file,
+remove_bc = remove_bc,
+replace_col_old = params$old_col_pattern,
+replace_col_with = params$new_col_pattern
+)
 ```
 
 ```{r}
@@ -251,7 +249,7 @@ if (params$extract_meta_columns != "") {
                                lab_col = params$lab_col)
   phenodata <- phenodata_all[[1]]
   pheno_matched <- phenodata_all[[2]]
-  pheno_ <- phenodata_all[[3]]
+  pheno_len <- phenodata_all[[3]]
   #Sanity check
   if (!identical(rownames(phenodata), colnames(spliced.data.df))) {
       stop("meta-data row names and cell ids are different")
@@ -310,7 +308,7 @@ if (params$add.spikes.mt) {
   control_features[["MT"]] <- isSpike(sce, "MT")
 }
 if (params$add.spikes.ercc) {
-  isSpike(sce, "ERCC") <- grepl("^ERCC2-", rownames(sce))
+  isSpike(sce, "ERCC") <- grepl("^ERCC-", rownames(sce))
     control_features[["ERCC"]] <- isSpike(sce, "ERCC")
 }
 # Calculate the quality metrics:
@@ -325,7 +323,7 @@ if (params$add.spikes.mt && params$add.spikes.ercc) {
 } else if (params$add.spikes.mt) {
   NaN_cells <- c(colnames(sce)[sce$pct_counts_MT == "NaN"])
 } else if (params$add.spikes.ercc) {
-  NaN_cells <- c(colnames(sce)[sce$pct_counts_ERCC == "Nan"])
+  NaN_cells <- c(colnames(sce)[sce$pct_counts_ERCC == "NaN"])
 }
 if (!is.null(NaN_cells)) {
   sce <- sce[,!colnames(counts(sce)) %in% NaN_cells]

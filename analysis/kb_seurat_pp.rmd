@@ -316,18 +316,10 @@ sce <- calculateQCMetrics(
   sce, feature_controls = control_features )
 
 # Removal of cells causing a warning:
-NaN_cells <- NULL
-if (params$add.spikes.mt && params$add.spikes.ercc) {
-  NaN_cells <- unique(c(colnames(sce)[sce$pct_counts_ERCC == "NaN"],
+NaN_cells <- unique(c(colnames(sce)[sce$pct_counts_ERCC == "NaN"],
                         colnames(sce)[sce$pct_counts_MT == "NaN"]))
-} else if (params$add.spikes.mt) {
-  NaN_cells <- c(colnames(sce)[sce$pct_counts_MT == "NaN"])
-} else if (params$add.spikes.ercc) {
-  NaN_cells <- c(colnames(sce)[sce$pct_counts_ERCC == "NaN"])
-}
-if (!is.null(NaN_cells)) {
-  sce <- sce[,!colnames(counts(sce)) %in% NaN_cells]
-}
+sce <- sce[,!colnames(counts(sce)) %in% NaN_cells]
+
 ```
 #### Distribution of counts per cell in the dataset
 
@@ -367,8 +359,8 @@ important to consider setting this boundary.
 # Using Scater to plot percentages of spikes
 # Only works if meta data available.
 plot.list = list(
-  p1 = plotColData(sce, y = "total_counts", x = "Library"),
-  p2 = plotColData(sce, y = "total_features_by_counts", x = "Library")
+  p1 = plotColData(sce, y = "total_counts", x = params$lab_col),
+  p2 = plotColData(sce, y = "total_features_by_counts", x = params$lab_col)
   )
 # Add ERCC to multiplot if present
 if (params$add.spikes.ercc) {

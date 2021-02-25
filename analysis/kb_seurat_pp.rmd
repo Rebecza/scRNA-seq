@@ -234,7 +234,7 @@ unspliced.data.df <- unspliced.data.df[,subset_cells]
 # no. of plates:
 n_bc <- length(readLines(file(params$barcode_file)))
 sprintf("%s barcodes in white-list!",n_bc)
-if (params$metho == "plate") {
+if (params$method == "plate") {
   sprintf("%s plates found!",length(colnames(spliced.data.df))/n_bc)
 }
 

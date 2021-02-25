@@ -2,9 +2,9 @@
 title: "SORT-seq dataset with velocity preparations"
 params:
   method: 
-     label: "method -- experimental method"
-     choices: ['plate', 'droplet']
-     value: 'plate'
+    label: "method -- experimental method"
+    choices: ['plate', 'droplet']
+    value: 'plate'
   kb.dir: 
     label: "kb.dir -- Directory containing kb-python output"
     value: /Users/tilman_work/Documents/Projects/R/testset/kallistobus
@@ -158,7 +158,7 @@ Scater usable object. Scater will be used to look into the quality of the data
 and to help with filtering out bad cells or genes.
 
 Location of the file:
-```{r loading dataset, echo=TRUE, message=FALSE, warning=}
+```{r loading dataset, echo=TRUE, message=FALSE, warning=FALSE}
 ## Splice seperated dataset: 
 # Optional edits on cell names: This only runs if a
 # substring that needs replacement was defined in parameters (old_col_pattern):

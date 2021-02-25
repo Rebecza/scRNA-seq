@@ -183,7 +183,7 @@ replace_col_with = params$new_col_pattern
 
 ```{r}
 # Percentage of reads unspliced
-sum(unspliced.data.df)/(sum(spliced.data.df)+sum(unspliced.data.df))
+print(paste0(sum(unspliced.data.df)/(sum(spliced.data.df)+sum(unspliced.data.df)))*100, "% of the reads are unspliced")
 # Make columnnames the same (order) between matrices
 all_cells <- intersect(colnames(spliced.data.df),colnames(unspliced.data.df))
 unspliced.data.df <- unspliced.data.df[,all_cells]

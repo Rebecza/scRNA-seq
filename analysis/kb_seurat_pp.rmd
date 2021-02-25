@@ -111,10 +111,7 @@ output:
  # Set the meta_data parameter to the path of the csv file
 here::set_here()
 knitr::opts_chunk$set(tidy.opts=list(width.cutoff=60),tidy=TRUE)
-#source(here::here("../src/read_kb_dataset_s2s.R"),local = knitr::knit_global())
-#source(here::here("../src/plate_QC.R"), local = knitr::knit_global())
-#source(here::here("../src/get_pheno_data.R"), local = knitr::knit_global())
-source("../src/utils.R")
+source(here::here("utils.R"),local = knitr::knit_global())
 system(paste("mkdir -p ", params$resultsdir))
 # Loading the important repositories #
 require("devtools")

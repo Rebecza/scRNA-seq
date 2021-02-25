@@ -88,6 +88,7 @@ params:
       label: "old_col_pattern -- old column pattern"
       value: ""
 
+
 output:
   pdf_document:
     pandoc_args: --listings
@@ -182,16 +183,19 @@ replace_col_with = params$new_col_pattern
 ```
 
 ```{r}
-# Percentage of reads unspliced
-print(paste0(sum(unspliced.data.df)/(sum(spliced.data.df)+sum(unspliced.data.df)))*100, "% of the reads are unspliced")
 # Make columnnames the same (order) between matrices
 all_cells <- intersect(colnames(spliced.data.df),colnames(unspliced.data.df))
 unspliced.data.df <- unspliced.data.df[,all_cells]
 spliced.data.df <- spliced.data.df[,all_cells]
 
-identical(colnames(spliced.data.df),colnames(unspliced.data.df))
+# Percentage of reads unspliced
+perc_spliced <- round((sum(unspliced.data.df)/(sum(spliced.data.df)+sum(unspliced.data.df)))*100,2)
+sprintf("%s%% of the reads are unspliced",perc_spliced)
 
 # The default data.df will be the spliced dataset (shorter to type)
+ifelse(!identical(colnames(spliced.data.df), colnames(unspliced.data.df)),
+       stop("Different colnames between sf/uf"),
+       "Matching colnames sf/uf")
 data.df <- spliced.data.df
 ```
 
@@ -223,7 +227,12 @@ unspliced.data.df <- unspliced.data.df[,subset_cells]
 
 # no. of plates:
 n_bc <- length(readLines(file(params$barcode_file)))
-length(colnames(spliced.data.df))/n_bc
+sprintf("%s barcodes in white-list!",n_bc)
+if (params$metho == "plate") {
+  sprintf("%s plates found!",length(colnames(spliced.data.df))/n_bc)
+}
+
+
 ```
 
 

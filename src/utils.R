@@ -85,49 +85,47 @@ read_kb_counts <- function(dir, name, barcode_file, remove_bc=TRUE, replace_col_
 }
 
 ##Extracts meta data from sample names
-get_pheno_data <- function(data.df=NULL, combined_variables_to_id="Library", plate_variables=NULL) {
-  phenodata <- data.frame(row.names=colnames(data.df))
+extract_meta_data <- function(cell.names=NULL, group_id="Library", meta_cols=NULL) {
+  phenodata <- data.frame(row.names=cell.names)
   phenodata$names <- row.names(phenodata)
-  phenodata <- separate(phenodata, col = "names", into = plate_variables, sep = "_")
+  phenodata <- separate(phenodata, col = "names", into = meta_cols, sep = "_")
   ncol_meta <- ncol(phenodata)
-  ## Replace by tinyverse using the columns mentioned with combined_variables_to_id
-  if (length(combined_variables_to_id) > 1) {
-    phenodata$combined_id <- apply(phenodata[,combined_variables_to_id], 1, paste, collapse = "_")
+  ## Replace by tinyverse using the columns mentioned with group_id
+  if (length(group_id) > 1) {
+    phenodata$combined_id <- apply(phenodata[,group_id], 1, paste, collapse = "_")
   } else {
-    phenodata$combined_id <- phenodata[,combined_variables_to_id]
+    phenodata$combined_id <- phenodata[,group_id]
   }
   # Only take the entries that are matchable with the counttable entries:
-  pheno_matched <- phenodata[rownames(phenodata) %in% colnames(data.df),]
+  pheno_matched <- phenodata[rownames(phenodata) %in% cell.names,]
   # Matching phenodata with the dataset ordering
-  pheno_ordered <- pheno_matched[match(colnames(data.df),rownames(pheno_matched)),]
+  pheno_ordered <- pheno_matched[match(cell.names,rownames(pheno_matched)),]
   return(list(pheno_ordered, pheno_matched, ncol_meta))
 }
 
 #Reads meta data from 
-read_pheno_data <- function(path=NULL, data.df=NULL, combined_variables_to_id="Library", lab_col="Library") {
+read_meta_data <- function(path=NULL, cell.names=NULL, group_id="Library", lab_col="Library") {
   phenodata <- read.csv(file = path)
-  print(colnames(phenodata))
   #Combine genome and sample column
   base_cols <- c("Genome","Sample","Barcode")
-  base_cols <- c(base_cols,lab_col)
   `%notin%` <- Negate(`%in%`)
-  if (base_cols %notin% colnames(phenodata)) {
+  if (c(base_cols,lab_col) %notin% colnames(phenodata)) {
     stop("Base columns not found. The meta should minimally contain columns: Sample,Genome,Barcode and Library")
   }
-  rownames(phenodata) <- apply(phenodata[,c("Genome","Sample","Barcode")],1,paste,collapse = "_")
+  rownames(phenodata) <- apply(phenodata[,base_cols],1,paste,collapse = "_")
   ncol_meta <- ncol(phenodata)
   #Add custom id to phenodata
-  if (length(combined_variables_to_id) > 1) {
-    phenodata$combined_id <- apply(phenodata[,combined_variables_to_id], 1, paste, collapse = "_")
+  if (length(group_id) > 1) {
+    phenodata$combined_id <- apply(phenodata[,group_id], 1, paste, collapse = "_")
   } else {
-    phenodata$combined_id <- phenodata[,combined_variables_to_id]
+    phenodata$combined_id <- phenodata[,group_id]
   }
-  ## Replace by tinyverse using the columns mentioned with combined_variables_to_id
+  ## Replace by tinyverse using the columns mentioned with group_id
   # Only take the entries that are matchable with the counttable entries:
   #phenodata <- t(phenodata)
-  pheno_matched <- phenodata[rownames(phenodata) %in% colnames(data.df),]
+  pheno_matched <- phenodata[rownames(phenodata) %in% cell.names,]
   # Matching phenodata with the dataset ordering
-  pheno_ordered <- pheno_matched[match(colnames(data.df),rownames(pheno_matched)),]
+  pheno_ordered <- pheno_matched[match(cell.names,rownames(pheno_matched)),]
   return(list(pheno_ordered, pheno_matched, ncol_meta))
 }
 

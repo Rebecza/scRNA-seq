@@ -1,11 +1,15 @@
 ---
 title: "SORT-seq dataset with velocity preparations"
 params:
+  method: 
+     label: "method -- experimental method"
+     choices: ['plate', 'droplet']
+     value: 'plate'
   kb.dir: 
     label: "kb.dir -- Directory containing kb-python output"
     value: /Users/tilman_work/Documents/Projects/R/testset/kallistobus
   barcode_file: 
-    label: "barcode_file -- .tab delimited file with barcode sequences. Use 2-col layout for plate based method"
+    label: "barcode_file -- .tab delimited file with barcode sequences. Use 2-col layout for plate based methods"
     value: /Users/tilman_work/Documents/Projects/R/scRNA-seq/data/barcode_384.tab
   mt_genes_file:
     label: "mt_genes_file -- .txt file containing mitchondrial gene names"
@@ -31,10 +35,6 @@ params:
   lab_col: 
       label: "lab_col -- Library meta data field"
       value: Library
-  method: 
-      label: "method -- experimental method"
-      choices: ['plate', 'droplet']
-      value: 'plate'
   add.spikes.ercc: 
       label: "add.spikes.ercc -- use ercc spike-ins (if present)"
       value: true
@@ -87,6 +87,7 @@ params:
   old_col_pattern: 
       label: "old_col_pattern -- old column pattern"
       value: ""
+
 output:
   pdf_document:
     pandoc_args: --listings
@@ -157,7 +158,7 @@ Scater usable object. Scater will be used to look into the quality of the data
 and to help with filtering out bad cells or genes.
 
 Location of the file:
-```{r loading dataset, echo = TRUE, warning = FALSE}
+```{r loading dataset, echo=TRUE, message=FALSE, warning=}
 ## Splice seperated dataset: 
 # Optional edits on cell names: This only runs if a
 # substring that needs replacement was defined in parameters (old_col_pattern):
@@ -232,9 +233,9 @@ length(colnames(spliced.data.df))/n_bc
 ```{r phenotable}
 ## Setting up the phenotable ##
 if (params$extract_meta_columns != "") {
-  phenodata_all <- get_pheno_data(data.df = data.df,
-                                  combined_variables_to_id = meta_group_id, 
-                                  plate_variables= extract_meta_columns)
+  phenodata_all <- extract_meta_data(cell.names = colnames(data.df),
+                                  group_id = meta_group_id, 
+                                  meta_cols= extract_meta_columns)
   phenodata <- phenodata_all[[1]]
   pheno_matched <- phenodata_all[[2]]
   pheno_len <- phenodata_all[[3]]
@@ -243,10 +244,10 @@ if (params$extract_meta_columns != "") {
   }
   write.csv(phenodata, paste(params$resultsdir,"phenodata_kbordered.csv", sep="/"))
 } else {
-  phenodata_all <- read_pheno_data(path = params$meta_data,
-                               data.df = data.df,
-                               combined_variables_to_id = meta_group_id,
-                               lab_col = params$lab_col)
+  phenodata_all <- read_meta_data(path = params$meta_data,
+                                  cell.names = colnames(data.df),
+                                  group_id = meta_group_id,
+                                  lab_col = params$lab_col)
   phenodata <- phenodata_all[[1]]
   pheno_matched <- phenodata_all[[2]]
   pheno_len <- phenodata_all[[3]]

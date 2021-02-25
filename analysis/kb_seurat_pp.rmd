@@ -16,7 +16,7 @@ params:
     value: /Users/tilman_work/Documents/Projects/R/scRNA-seq/data/MT_genes.txt
   meta_data:
     label: "meta_data -- .csv file containing cell meta data. Alternative for extract_meta_columns"
-    value: /Users/tilman_work/Documents/Projects/R/scRNA-seq/data/pbmc_meta_test.csv  #used when extract_phenotypes = FALSE
+    value: "" #/Users/tilman_work/Documents/Projects/R/scRNA-seq/data/pbmc_meta_test.csv  #used when extract_phenotypes = FALSE
   extract_meta_columns: 
     label: "extract_meta_columns -- extracts meta data from sample names. Alternative for meta_data."
     value: Genome,Method,Lineage,Timepoint,Replicate,Library,Well
@@ -143,6 +143,12 @@ confounders_to_test = unlist(strsplit(params$confounders_to_test,","))
 # Regression performed on the following variables:"
 vars_to_regress_sf = unlist(strsplit(params$vars_to_regress_sf,","))
 vars_to_regress_uf = unlist(strsplit(params$vars_to_regress_uf,","))
+#### Small sanitychecks #####
+if (params$extract_meta_columns != "" && params$meta_data !="") {
+  stop("Provider either a meta-data.csv file or set extract_meta_columns but not both!")
+}
+
+
 
 ```
 ## *Cleaning up the counts table, for subset: `r params$cell_id_subset`*

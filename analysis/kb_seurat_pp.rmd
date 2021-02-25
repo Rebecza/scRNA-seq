@@ -24,13 +24,13 @@ params:
      label: "resultsdir -- output directory for qc files" 
      value: /Users/tilman_work/Documents/Projects/R/scRNA-seq/output
   meta_group_id: 
-      label: "meta_group_id -- combine meta data fields for plotting. Can be seperated by comma for multiple values" 
+      label: "meta_group_id -- combine meta data fields for plotting (seperated multiple values by comma)" 
       value: Library
   umap_cols: 
-      label: "umap_cols -- meta data fields for Seurat's RunUMAP. Can be seperated by comma for multiple values"
+      label: "umap_cols -- meta data fields for Seurat's RunUMAP (seperated multiple values by comma)"
       value: Method  
   confounders_to_test: 
-      label: "confounders_to_test -- meta data variabel for confounder testing"
+      label: "confounders_to_test -- meta data variabel for confounder testing (seperated multiple values by comma)"
       value: Library
   lab_col: 
       label: "lab_col -- Library meta data field"
@@ -62,13 +62,13 @@ params:
   nhvg: 
       label: "nhvg -- number of genes for Seurat's FindVariableFeatures"
       value: 2000
-  cell_id_subset: 
-      label: "cell_id_subset -- cell ids to include/exclude based on cell_id_subset_filter"
-      value: ''    
-  cell_id_subset_filter: 
+  cell_id_filter_option: 
       label: "cell_id_subset_filter -- filter options for cell_id_subset" 
       choices: ['in', 'out', 'none']
-      value: 'none'
+      value: 'none'    
+  cell_id_filter_pattern: 
+      label: "cell_id_subset -- cell ids to include/exclude based on cell_id_subset_filter"
+      value: _A9    
   pcs_for_overview:
       label: "pcs_for_overview -- principal components for overview in combined umap plot"
       value: '10,20,30,40,50'
@@ -201,20 +201,20 @@ data.df <- spliced.data.df
 ### Perform subsetting of dataset (optional)
 ```{r filtering certain entries}
 
-if (params$cell_id_subset_filter == "out"){
+if (params$cell_id_filter_option == "out"){
   # checking the amount of cells in the dataset before filtering
   length(colnames(data.df))
   # the amount of cells you retrieve with the filter.
-  length(colnames(data.df[,!grepl(params$cell_id_subset, colnames(data.df)) == TRUE]))
+  length(colnames(data.df[,!grepl(params$cell_id_filter_pattern, colnames(data.df)) == TRUE]))
   # filter cells based on the substring.
-  data.df <- data.df[,!grepl(params$cell_id_subset, colnames(data.df)) == TRUE]
-} else if (params$cell_id_subset_filter == "in"){
+  data.df <- data.df[,!grepl(params$cell_id_filter_pattern, colnames(data.df)) == TRUE]
+} else if (params$cell_id_filter_option == "in"){
   # checking the amount of cells in the dataset before filtering
   length(colnames(data.df))
   # the amount of cells you retrieve with the filter.
-  length(colnames(data.df[,grepl(params$cell_id_subset, colnames(data.df)) == TRUE]))
+  length(colnames(data.df[,grepl(params$cell_id_filter_pattern, colnames(data.df)) == TRUE]))
   # filter cells based on the substring.
-  data.df <- data.df[,grepl(params$cell_id_subset, colnames(data.df)) == TRUE]
+  data.df <- data.df[,grepl(params$cell_id_filter_pattern, colnames(data.df)) == TRUE]
 } else {
   print(paste0("No filtering applied. The amount of cells in the dataset remain: ", 
                as.character(length(colnames(data.df)))))

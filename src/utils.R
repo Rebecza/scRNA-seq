@@ -33,8 +33,9 @@ read_kb_counts <- function(dir, name, barcode_file, remove_bc=TRUE, replace_col_
   dir <- normalizePath(dir, mustWork = TRUE)
   output_folders <- list.files(dir, 
                                recursive = FALSE, include.dirs = TRUE)
-  i <- 1
-  for (folder in output_folders){
+  
+  for (i in 1: length(output_folders)){
+    folder <- output_folders[[i]]
     print(paste("Reading:",folder))
     plate <- paste0(dir, "/", folder, "/counts_unfiltered/", name)
     m <- readMM(paste0(plate, ".mtx"))
@@ -55,7 +56,6 @@ read_kb_counts <- function(dir, name, barcode_file, remove_bc=TRUE, replace_col_
       # Only binds the matrices if genes are identical and in the same order
       combined <- cbind(combined, m)
     }
-    i <- i + 1
   }
   cells <- data.frame("cell" = colnames(combined))
   cells$barcode <- gsub("_.*", "", cells$cell)

@@ -579,7 +579,7 @@ seuset <-
 
 ```{r Perform SCTransform, warning=FALSE}
  ##Perform SCTransform
-sct <- SCTransform(seuset, assay = "sf", vars.to.regress = params$vars_to_regress_sf, verbose = FALSE)
+sct <- SCTransform(seuset, assay = "sf", variable.features.n=params$nhvg, vars.to.regress = params$vars_to_regress_sf, verbose = FALSE)
 
 ```
 
@@ -814,7 +814,7 @@ seuset[['uf']] <- CreateAssayObject(counts = unspliced_match)
 ```
 
 ```{r perform SCTransform on unspliced assay , warning=FALSE}
-sct_uf <- SCTransform(seuset, assay = "uf",vars.to.regress = params$vars_to_regress_uf, verbose = FALSE)
+sct_uf <- SCTransform(seuset, assay = "uf", variable.features.n=params$nhvg, vars.to.regress = params$vars_to_regress_uf, verbose = FALSE)
 ```
 
 ## Highly variable genes & Scaling of the gene expression values

@@ -563,27 +563,6 @@ reducedDimNames(sce_endo)
 
 ```
 
-# Raw log2-transformation
-To compare with other normalization methods.
-
-```{r raw log2-transformation}
-assay(sce_endo, "logcounts_raw") <- log2(counts(sce_endo) + 1)
-
-# plotReducedDim and plotPCA will do the same, with plotPCA you leave out the
-# use_dimred="PCA" argument.
-tmp <- runPCA(sce_endo, 
-              ncomponents = 50, 
-              exprs_values = "logcounts_raw")
-# plot PCA after log2 transformation
-plotPCA(tmp,
-        colour_by = params$lab_col,
-        size_by = "total_features_by_counts")
-# One can also run tSNE in similar ways with Scater.
-rm(tmp)
-# The logcounts_raw is not enough to account for the technical factors between
-# the cells.
-```
-
 ## Normalization in Seurat
 Make the seurat object, 'seuset'. In this step you could filter the cells
 again, these however already have been filtered before in 'table clean-up',
@@ -598,25 +577,26 @@ seuset <-
   )
 ```
 
+```{r Perform SCTransform, warning=FALSE}
+ ##Perform SCTransform
+sct <- SCTransform(seuset, assay = "sf", vars.to.regress = params$vars_to_regress_sf, verbose = FALSE)
+
+```
+
 ```{r}
 # looking into the dataset
 VlnPlot(
-    object = seuset,
+    object = sct,
     features = c("nFeature_sf"),
     group.by = params$lab_col
 )
 VlnPlot(
-    object = seuset,
+    object = sct,
     features = c("nCount_sf"),
     group.by = params$lab_col
 )
-#VlnPlot(
-#  object = seuset,
-#    features = explore_violin,
-#    group.by = params$lab_col
-#)
 FeatureScatter(
-    object = seuset,
+    object = sct,
     feature1 = "nCount_sf",
     feature2 = "nFeature_sf"
 )
@@ -628,32 +608,22 @@ FeatureScatter(
 # normalizes the gene expression measurements for each cell by the total
 # expression, multiplies this by a scale factor (10,000 by default), and
 # log-transforms the result.""
-seu <- seuset
-seuset <- NormalizeData(
-    object = seuset,
-    normalization.method = "LogNormalize",
-    scale.factor = 10000
-)
+
 # looking into the dataset
 VlnPlot(
-    object = seuset,
-    features = c("nFeature_sf"),
+    object = sct,
+    features = c("nFeature_SCT"),
     group.by = params$lab_col
 )
 VlnPlot(
-    object = seuset,
-    features = c("nCount_sf"),
+    object = sct,
+    features = c("nCount_SCT"),
     group.by = params$lab_col
 )
-#VlnPlot(
-#  object = seuset,
-#    features = explore_violin,
-#    group.by = params$lab_col
-#)
 FeatureScatter(
-    object = seuset,
-    feature1 = "nCount_sf",
-    feature2 = "nFeature_sf"
+    object = sct,
+    feature1 = "nCount_SCT",
+    feature2 = "nFeature_SCT"
 )
 saveRDS(seuset, paste(params$resultsdir,"seuset_qc+norm.rds",sep="/"))
 ```
@@ -662,14 +632,15 @@ saveRDS(seuset, paste(params$resultsdir,"seuset_qc+norm.rds",sep="/"))
 
 ```{r seurat objects to sce}
 # Only take the entries that are matchable with the counttable entries:
+# Here we take te logp1 normalized counts from the sct object (data slot)
 filtered_cells <- intersect(rownames(phenodata), 
-                            colnames(seuset@assays$sf@data))
+                            colnames(sct@assays$SCT@data))
 pheno_matchedseuset <- phenodata[filtered_cells, ]
 pheno_orderedseuset <-
-pheno_matchedseuset[match(colnames(seuset@assays$sf@data),
+pheno_matchedseuset[match(colnames(sct@assays$SCT@data),
 rownames(pheno_matchedseuset)), ]
 
-count_matrixseuset <- as.matrix(seuset@assays$sf@data)
+count_matrixseuset <- as.matrix(sct@assays$SCT@data)
 
 sce_seunorm <-
 SingleCellExperiment(
@@ -684,7 +655,6 @@ assay(sce_seunorm, "logcounts") <- counts(sce_seunorm)
 # Calculate the quality metrics:
 sce_seunorm <- calculateQCMetrics(
   sce_seunorm)
-
 ```
 
 # Identifying the variation caused by each confounding factor
@@ -727,8 +697,7 @@ multiplot(p1, p2)
 ```
 
 
-```{r}
-# running PCA on the normalized counts
+```{r  running PCA on SCT normalized counts}
 sce_seunorm <- runPCA(
   sce_seunorm, ncomponents = 20,
   exprs_values = "counts"
@@ -736,14 +705,14 @@ sce_seunorm <- runPCA(
 ```
 
 
-```{r,  linewidth=60}
+```{r PCA plot after SCT normalization,  linewidth=60}
 # plotting again the PCA's on raw-transformed and normalized values
 # raw log-transformation.
-tmp <- runPCA(sce_endo, ncomponents = 50, exprs_values = "logcounts_raw")
+#tmp <- runPCA(sce_endo, ncomponents = 50, exprs_values = "logcounts_raw")
 # PCA plot after log2 transformation
-plotPCA(tmp,
-        colour_by = params$lab_col,
-        size_by = "total_features_by_counts")
+# plotPCA(tmp,
+#         colour_by = params$lab_col,
+#         size_by = "total_features_by_counts")
 
 # PCA plot after seurat normalization
 plotPCA(sce_seunorm,
@@ -757,7 +726,7 @@ plotPCA(sce_seunorm,
 
 Select the same cells and genes as in the spliced dataset
 
-```{r build SCE 2}
+```{r build unspliced assay}
 # df -> matrix -> SCE + phenodata
 cells_use <- colnames(sce_endo)
 genes_use <- rownames(sce_endo)
@@ -836,55 +805,36 @@ dev.off()
 ```
 ## Build Seurat object with unspliced and spliced assay
 
-```{r}
+```{r add unspliced assay to Seurat object, warning=FALSE}
 unspliced_match <- unspliced.data.df[genes_use,cells_use]
 unspliced_match <- as.matrix(unspliced_match)
-
-seu[["uf"]] <- CreateAssayObject(counts = unspliced_match)
-
-seu <- NormalizeData(
-    object = seu, assay = "sf",
-    normalization.method = "LogNormalize",
-    scale.factor = 10000
-)
-seu <- NormalizeData(
-    object = seu, assay = "uf",
-    normalization.method = "LogNormalize",
-    scale.factor = 10000
-)
-
+#Add unspliced assay to seuset object
+seuset[['uf']] <- CreateAssayObject(counts = unspliced_match)
 ```
 
+```{r perform SCTransform on unspliced assay , warning=FALSE}
+sct_uf <- SCTransform(seuset, assay = "uf",vars.to.regress = params$vars_to_regress_uf, verbose = FALSE)
+```
 
 ## Highly variable genes & Scaling of the gene expression values
 
-```{r}
+```{r print VariableFeatures SCTransform}
 # FindVariableFeatures plots the dispersion (= a normalized measure of
 # cell-to-cell variation), as a function of average expression for each gene. In
 # their tutorial the Satija lab uses the cut-off of 2000 genes.
-seu <- FindVariableFeatures(
-    object = seu, assay = "sf",
-    selection.method = "vst",
-    nfeatures = params$nhvg)
-
-seu <- FindVariableFeatures(
-    object = seu, assay = "uf",
-    selection.method = "vst",
-    nfeatures = params$nhvg)
-
 # top 10 most variable genes
-top20 <- head(VariableFeatures(seu, assay = "sf"), 20)
-top20_uf <- head(VariableFeatures(seu, assay = "uf"), 20)
+top20 <- head(VariableFeatures(sct, assay = "SCT"), 20)
+top20_uf <- head(VariableFeatures(sct_uf, assay = "SCT"), 20)
 # plot variable features with labels:
-plot1 <- VariableFeaturePlot(seu)
+plot1 <- VariableFeaturePlot(sct, assay="SCT")
 plot2 <- LabelPoints(plot = plot1, points = top20, repel = TRUE)
 plot2
-plot3 <- VariableFeaturePlot(seu, assay = "uf")
+plot3 <- VariableFeaturePlot(sct_uf, assay = "SCT")
 plot4 <- LabelPoints(plot = plot3, points = top20_uf, repel = TRUE)
 plot4
 # Preferable removing the genes that are highly expressed but with a low variance.
-length(x = seu@assays$sf@var.features)
-seu[["sf"]]@var.features[1:10]
+length(x = sct@assays$SCT@var.features)
+#seu[["sf"]]@var.features[1:10]
 
 
 ```
@@ -894,32 +844,22 @@ seu[["sf"]]@var.features[1:10]
 # using all the genes, could also select only the highly variable genes.
 # Optional regression is performed here.
 all.genes <- rownames(seuset)
-seu <- ScaleData(
-    object = seu,  vars.to.regress = vars_to_regress_sf,
-    assay = "sf",
-    features = all.genes
-)
-seu <- ScaleData(
-    object = seu,  vars.to.regress =  vars_to_regress_uf,
-    assay = "uf",
-    features = all.genes
-)
 ```
 
 ## Running PCA analysis on the scaled data
 ```{r running PCA}
-seuset <- seu
-rm(seu)
-DefaultAssay(seuset) <- "sf"
+#seuset <- seu
+#rm(seu)
+#DefaultAssay(seuset) <- "sf"
 seuset <- RunPCA(
-    object = seuset,
-    features = VariableFeatures(object = seuset),
+    object = sct,
+    features = VariableFeatures(object = sct),
     npcs = params$pcs_max_hvg,
     ndims.print = 1:5,
     nfeatures.print = 5
 )
-length(seuset[["sf"]]@var.features)
-length(seuset[["uf"]]@var.features)
+length(sct@assays$SCT@var.features)
+length(sct_uf@assays$SCT@var.features)
 ```
 
 ## Visualizing PCA results:

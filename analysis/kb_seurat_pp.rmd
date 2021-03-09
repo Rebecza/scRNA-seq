@@ -35,9 +35,12 @@ params:
   lab_col: 
       label: "lab_col -- Library meta data field"
       value: Library
+  isvelo:
+      label: "is_velo -- velocity workflow"
+      value: true
   run.sct:
       label: "run.sct -- Perform SCTransform normalization"
-      value: false
+      value: true
   add.spikes.ercc: 
       label: "add.spikes.ercc -- use ercc spike-ins (if present)"
       value: true
@@ -101,7 +104,7 @@ output:
     toc_depth: 2
     number_sections: true
 ---
-```{r include = FALSE}
+```{r include=FALSE}
 #Custom listings markdown template: https://stackoverflow.com/questions/21402157/colour-for-r-code-chunk-in-listings-package/21468454
 
 # Plate based assays:
@@ -114,8 +117,9 @@ output:
  # Additional columns can be provided for statistical analysis, such as umap embeddings. An example can be found in the data folder (pbmc_meta_test.csv).
  # Set the meta_data parameter to the path of the csv file
 here::set_here()
+knitr::opts_knit$set(root.dir = here::here())
 knitr::opts_chunk$set(tidy.opts=list(width.cutoff=60),tidy=TRUE)
-source(here::here("utils.R"),local = knitr::knit_global())
+source(here::here("analysis", "utils.R"),local = knitr::knit_global())
 system(paste("mkdir -p ", params$resultsdir))
 # Loading the important repositories #
 require("devtools")
@@ -150,7 +154,11 @@ vars_to_regress_uf = unlist(strsplit(params$vars_to_regress_uf,","))
 if (params$extract_meta_columns != "" && params$meta_data !="") {
   stop("Provider either a meta-data.csv file or set extract_meta_columns but not both!")
 }
-
+remove_bc = FALSE
+if (params$method == "plate") {
+  remove_bc = TRUE
+}
+is.velo <- as.logical(params$isvelo)
 
 
 ```
@@ -165,14 +173,10 @@ Scater usable object. Scater will be used to look into the quality of the data
 and to help with filtering out bad cells or genes.
 
 Location of the file:
-```{r loading dataset, echo=TRUE, message=FALSE, warning=FALSE}
+```{r loading splice seperated dataset, message=FALSE, warning=FALSE, eval=is.velo}
 ## Splice seperated dataset: 
 # Optional edits on cell names: This only runs if a
 # substring that needs replacement was defined in parameters (old_col_pattern):
-remove_bc = FALSE
-if (params$method == "plate") {
-  remove_bc = TRUE
-}
 spliced.data.df = read_kb_counts(
   params$kb.dir,
   "spliced",
@@ -190,27 +194,42 @@ replace_col_old = params$old_col_pattern,
 replace_col_with = params$new_col_pattern
 )
 ```
+```{r loading dataset2, message=FALSE, warning=FALSE, eval=!is.velo}
+## Load count tables (quantification)
+spliced.data.df = read_kb_counts(
+  params$kb.dir,
+  "spliced",
+  barcode_file = params$barcode_file,
+  remove_bc = remove_bc,
+  replace_col_old = params$old_col_pattern,
+  replace_col_with = params$new_col_pattern
+  )
+```
 
-```{r}
+
+```{r, matching columns, eval=is.velo}
 # Make columnnames the same (order) between matrices
+## TODO - remove check for quantification
 all_cells <- intersect(colnames(spliced.data.df),colnames(unspliced.data.df))
 unspliced.data.df <- unspliced.data.df[,all_cells]
 spliced.data.df <- spliced.data.df[,all_cells]
-
 # Percentage of reads unspliced
 perc_spliced <- round((sum(unspliced.data.df)/(sum(spliced.data.df)+sum(unspliced.data.df)))*100,2)
 sprintf("%s%% of the reads are unspliced",perc_spliced)
-
 # The default data.df will be the spliced dataset (shorter to type)
 ifelse(!identical(colnames(spliced.data.df), colnames(unspliced.data.df)),
        stop("Different colnames between sf/uf"),
        "Matching colnames sf/uf")
+
+```
+
+```{r}
+#Use spliced data df for further analysis
 data.df <- spliced.data.df
 ```
 
 ### Perform subsetting of dataset (optional)
 ```{r filtering certain entries}
-
 if (params$cell_id_filter_option == "out"){
   # checking the amount of cells in the dataset before filtering
   length(colnames(data.df))
@@ -229,21 +248,22 @@ if (params$cell_id_filter_option == "out"){
   print(paste0("No filtering applied. The amount of cells in the dataset remain: ", 
                as.character(length(colnames(data.df)))))
 }
+```
 
+```{r, eval=is.velo}
+##??TODO add subset check for splice data df
 spliced.data.df <- data.df
 subset_cells <- intersect(colnames(spliced.data.df), colnames(unspliced.data.df))
 unspliced.data.df <- unspliced.data.df[,subset_cells]
-
+```
+```{r}
 # no. of plates:
 n_bc <- length(readLines(file(params$barcode_file)))
 sprintf("%s barcodes in white-list!",n_bc)
 if (params$method == "plate") {
   sprintf("%s plates found!",length(colnames(spliced.data.df))/n_bc)
 }
-
-
 ```
-
 
 ```{r phenotable}
 ## Setting up the phenotable ##
@@ -273,11 +293,8 @@ if (params$extract_meta_columns != "") {
 }
 
 ```
-
 ## Plate Overviews
-
 Running QC over the plates: are there
-
 ```{r}
 if (params$method == "plate") {
   ## Running plate QC: are there certain patterns?
@@ -517,7 +534,6 @@ if (params$add.spikes.ercc) {
 ```
 
 In the dataset `r genes_expressed` are considered expressed.
-
 ## Check for confounding factors
 
 PCA on only the endogenous genes is used to evaluate the influence of the
@@ -580,17 +596,20 @@ seuset <-
   )
 ```
 
-```{r, warning=FALSE, results = 'asis'}
+```{r, warning=FALSE, results = 'asis', eval=is.velo}
 norm.rmd <- ifelse(params$run.sct, "analysis-sct.Rmd", "analysis-norm-legacy.Rmd")
-knitr::opts_knit$set(output.dir = here::here())
-res <- knitr::knit_child(norm.rmd, quiet = TRUE)
+res <- knitr::knit_child(here::here("analysis", norm.rmd), quiet = TRUE)
+cat(res, sep = '\n')
+```
+
+```{r, warning=FALSE, results = 'asis', eval=!is.velo}
+res <- knitr::knit_child(here::here("analysis", "analysis-sct-quant.Rmd"), quiet = TRUE)
 cat(res, sep = '\n')
 ```
 
 ## Visualizing PCA results:
 ```{r}
 #PrintPCA(object = seuset.scnorm, pcs.print = 1:5, genes.print = 5, use.full = FALSE)
-
 VizDimLoadings(object = seuset, dims = 1:10, reduction = "pca")
 VizDimLoadings(object = seuset, dims = 10:20, reduction = "pca")
 pdf(paste(
@@ -652,7 +671,7 @@ ElbowPlot(object = seuset, ndims = 35)
 
 ## Overview of different UMAPs with varying dimensional input
 
-```{r}
+```{r warning=FALSE}
 #Generating a combined UMAP plot with various defined settings. Only a legend in
 #the first plotted (since this will be the same for the others). Generating a
 #combined plot with only a legend in the first plotted (since this will be the

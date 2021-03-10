@@ -132,109 +132,17 @@ plotPCA(sce_seunorm,
         colour_by = params$lab_col,
         size_by = "total_features_by_counts")
 ```
-
-
-## Build unspliced assay
-
-Select the same cells and genes as in the spliced dataset
-
-```{r build unspliced assay}
-# df -> matrix -> SCE + phenodata
-cells_use <- colnames(sce_endo)
-genes_use <- rownames(sce_endo)
-sce_us <-
-  SingleCellExperiment(
-  assays = list(counts = unspliced.data.df),
-  colData = pheno_matched,
-  rowData = rownames(unspliced.data.df)
-  )
-control_features_us <- vector("list", 0)
-control_features_us_match <- vector("list", 0)
-# Dataset after filtering:
-sce_usmatch <- sce_us[genes_use,cells_use]
-# Adding spike-in information:
-if (params$add.spikes.mt) {
-  isSpike(sce_us, "MT") <- grepl("^MT-", rownames(sce_us))
-  control_features_us[["MT"]] <- isSpike(sce_us, "MT")
-  #matched sce object
-  isSpike(sce_usmatch, "MT") <- grepl("^MT-", rownames(sce_usmatch))
-  control_features_us_match[["MT"]] <- isSpike(sce_usmatch, "MT")
-}
-if (params$add.spikes.ercc) {
-  isSpike(sce_us, "ERCC") <- grepl("^ERCC-", rownames(sce_us))
-  control_features_us[["ERCC"]] <- isSpike(sce_us, "ERCC")
-  #matched sce object
-  isSpike(sce_usmatch, "ERCC") <- grepl("^ERCC-", rownames(sce_usmatch))
-  control_features_us_match[["ERCC"]] <- isSpike(sce_usmatch, "ERCC")
-}
-# Calculate the quality metrics:
-# Calculate the quality metrics:
-sce_us <- calculateQCMetrics(
-  sce_us, feature_controls = control_features_us
-    )
-sce_usmatch <- calculateQCMetrics(
-  sce_usmatch, feature_controls = control_features_us_match
-  )
-# Arbitrary thresholds:
-# Looking at the total number of RNA molecules per sample
-# UMI counts were used for this experiment
-hist(sce_us$total_counts, breaks = 100)
-abline(v = params$total_counts_tresh, col = "red")
-# Looking at the amount of unique genes per sample
-# This is the amount with ERCC included.
-hist(sce_us$total_features_by_counts, breaks = 100)
-abline(v= params$total_feat_tresh, col = "red")
-hist(sce_usmatch$total_counts, breaks = 100)
-abline(v = params$total_counts_tresh, col = "red")
-hist(sce_usmatch$total_features_by_counts, breaks = 100)
-abline(v= params$total_feat_tresh, col = "red")
-pdf(
-  paste(
-  params$resultsdir,
-  "Histograms_before+aftercellsFiltering_UnsplicedReads.pdf",
-  sep = "/"
-  )
-  )
-par(mfrow=c(2,2))
-hist(sce_us$total_counts, breaks = 100)
-abline(v = params$total_counts_tresh, col = "red")
-hist(sce_us$total_features_by_counts, breaks = 100)
-abline(v= params$total_feat_tresh, col = "red")
-hist(sce_usmatch$total_counts, breaks = 100)
-abline(v = params$total_counts_tresh, col = "red")
-hist(sce_usmatch$total_features_by_counts, breaks = 100)
-abline(v= params$total_feat_tresh, col = "red")
-dev.off()
-```
-## Build Seurat object with unspliced and spliced assay
-
-```{r add unspliced assay to Seurat object, warning=FALSE}
-unspliced_match <- unspliced.data.df[genes_use,cells_use]
-unspliced_match <- as.matrix(unspliced_match)
-#Add unspliced assay to seuset object
-seuset[['uf']] <- CreateAssayObject(counts = unspliced_match)
-```
-
-```{r perform SCTransform on unspliced assay , warning=FALSE}
-sct_uf <- SCTransform(seuset, assay = "uf", variable.features.n=params$nhvg, vars.to.regress = vars_to_regress_uf, verbose = FALSE)
-```
-
 ## Highly variable genes & Scaling of the gene expression values
-
 ```{r print VariableFeatures SCTransform}
 # FindVariableFeatures plots the dispersion (= a normalized measure of
 # cell-to-cell variation), as a function of average expression for each gene. In
 # their tutorial the Satija lab uses the cut-off of 2000 genes.
 # top 10 most variable genes
 top20 <- head(VariableFeatures(sct, assay = "SCT"), 20)
-top20_uf <- head(VariableFeatures(sct_uf, assay = "SCT"), 20)
 # plot variable features with labels:
 plot1 <- VariableFeaturePlot(sct, assay="SCT")
 plot2 <- LabelPoints(plot = plot1, points = top20, repel = TRUE)
 plot2
-plot3 <- VariableFeaturePlot(sct_uf, assay = "SCT")
-plot4 <- LabelPoints(plot = plot3, points = top20_uf, repel = TRUE)
-plot4
 # Preferable removing the genes that are highly expressed but with a low variance.
 length(x = sct@assays$SCT@var.features)
 #seu[["sf"]]@var.features[1:10]
@@ -260,5 +168,4 @@ seuset <- RunPCA(
     nfeatures.print = 5
 )
 length(sct@assays$SCT@var.features)
-length(sct_uf@assays$SCT@var.features)
 ```

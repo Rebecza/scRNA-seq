@@ -35,6 +35,15 @@ params:
   lab_col: 
       label: "lab_col -- Library meta data field"
       value: Library
+  isvelo:
+      label: "is_velo -- velocity workflow"
+      value: true
+  run.sct:
+      label: "run.sct -- Perform SCTransform normalization"
+      value: true
+  run.jackstraw:
+       label: "run.jackstraw -- Perform Jackstraw analysis"
+       value: true    
   add.spikes.ercc: 
       label: "add.spikes.ercc -- use ercc spike-ins (if present)"
       value: true
@@ -87,7 +96,7 @@ params:
   old_col_pattern: 
       label: "old_col_pattern -- old column pattern"
       value: ""
-
+  
 
 output:
   pdf_document:
@@ -98,7 +107,7 @@ output:
     toc_depth: 2
     number_sections: true
 ---
-```{r include = FALSE}
+```{r loading libraries, include=FALSE}
 #Custom listings markdown template: https://stackoverflow.com/questions/21402157/colour-for-r-code-chunk-in-listings-package/21468454
 
 # Plate based assays:
@@ -111,8 +120,10 @@ output:
  # Additional columns can be provided for statistical analysis, such as umap embeddings. An example can be found in the data folder (pbmc_meta_test.csv).
  # Set the meta_data parameter to the path of the csv file
 here::set_here()
+knitr::opts_knit$set(root.dir = here::here())
+#knitr::opts_knit$set(output.dir=here::here("analysis"))
 knitr::opts_chunk$set(tidy.opts=list(width.cutoff=60),tidy=TRUE)
-source(here::here("utils.R"),local = knitr::knit_global())
+source(here::here("analysis", "utils.R"),local = knitr::knit_global())
 system(paste("mkdir -p ", params$resultsdir))
 # Loading the important repositories #
 require("devtools")
@@ -128,7 +139,24 @@ library(Seurat)
 library(scran)
 library(RColorBrewer)
 library(plot3D)
-## unlist parameters ##
+#Defaults
+vars_to_regress_sf = NULL
+vars_to_regress_uf = NULL
+remove_bc = FALSE
+## Small sanity checks
+if (params$method == "plate") {
+  remove_bc = TRUE
+}
+if (params$vars_to_regress_sf != "") {
+  vars_to_regress_sf = unlist(strsplit(params$vars_to_regress_sf,","))
+}
+if (params$vars_to_regress_uf != "") {
+  vars_to_regress_uf = unlist(strsplit(params$vars_to_regress_uf,","))
+}
+if (params$extract_meta_columns != "" && params$meta_data != "") {
+  stop("Provider either a meta-data.csv file or set extract_meta_columns but not both!")
+}
+## Unlist parameters ##
 label.vector = unlist(strsplit(params$umap_cols,","))
 # Unique combined ID per plate, for visualization purposes
 extract_meta_columns = unlist(strsplit(params$extract_meta_columns,","))
@@ -141,15 +169,6 @@ confounders_to_test = unlist(strsplit(params$confounders_to_test,","))
 # Marker genes for violin plots
 #explore_violin = c("SOX2","GAPDH")
 # Regression performed on the following variables:"
-vars_to_regress_sf = unlist(strsplit(params$vars_to_regress_sf,","))
-vars_to_regress_uf = unlist(strsplit(params$vars_to_regress_uf,","))
-#### Small sanitychecks #####
-if (params$extract_meta_columns != "" && params$meta_data !="") {
-  stop("Provider either a meta-data.csv file or set extract_meta_columns but not both!")
-}
-
-
-
 ```
 ## *Cleaning up the counts table, for subset: `r params$cell_id_subset`*
 
@@ -160,16 +179,12 @@ if (params$extract_meta_columns != "" && params$meta_data !="") {
 The counts table is loaded along with the metadata of the cells within an
 Scater usable object. Scater will be used to look into the quality of the data
 and to help with filtering out bad cells or genes.
-
 Location of the file:
-```{r loading dataset, echo=TRUE, message=FALSE, warning=FALSE}
+```{r loading splice seperated dataset, message=FALSE, warning=FALSE, eval=params$isvelo}
+## Run when isvelo is set to TRUE ##
 ## Splice seperated dataset: 
 # Optional edits on cell names: This only runs if a
 # substring that needs replacement was defined in parameters (old_col_pattern):
-remove_bc = FALSE
-if (params$method == "plate") {
-  remove_bc = TRUE
-}
 spliced.data.df = read_kb_counts(
   params$kb.dir,
   "spliced",
@@ -187,27 +202,42 @@ replace_col_old = params$old_col_pattern,
 replace_col_with = params$new_col_pattern
 )
 ```
+```{r loading quantification dataset, message=FALSE, warning=FALSE, eval=!params$isvelo}
+## Load count tables (quantification)
+spliced.data.df = read_kb_counts(
+  params$kb.dir,
+  "cells_x_genes",
+  barcode_file = params$barcode_file,
+  remove_bc = remove_bc,
+  replace_col_old = params$old_col_pattern,
+  replace_col_with = params$new_col_pattern
+  )
+```
 
-```{r}
+
+```{r, matching spliced/unspliced matrix columns, eval=params$isvelo}
 # Make columnnames the same (order) between matrices
+## TODO - remove check for quantification
 all_cells <- intersect(colnames(spliced.data.df),colnames(unspliced.data.df))
 unspliced.data.df <- unspliced.data.df[,all_cells]
 spliced.data.df <- spliced.data.df[,all_cells]
-
 # Percentage of reads unspliced
 perc_spliced <- round((sum(unspliced.data.df)/(sum(spliced.data.df)+sum(unspliced.data.df)))*100,2)
 sprintf("%s%% of the reads are unspliced",perc_spliced)
-
 # The default data.df will be the spliced dataset (shorter to type)
 ifelse(!identical(colnames(spliced.data.df), colnames(unspliced.data.df)),
        stop("Different colnames between sf/uf"),
        "Matching colnames sf/uf")
+
+```
+
+```{r, setting spliced matrix}
+#Use spliced data df for further analysis
 data.df <- spliced.data.df
 ```
 
 ### Perform subsetting of dataset (optional)
-```{r filtering certain entries}
-
+```{r filtering cell ids}
 if (params$cell_id_filter_option == "out"){
   # checking the amount of cells in the dataset before filtering
   length(colnames(data.df))
@@ -226,68 +256,67 @@ if (params$cell_id_filter_option == "out"){
   print(paste0("No filtering applied. The amount of cells in the dataset remain: ", 
                as.character(length(colnames(data.df)))))
 }
+```
 
+```{r intersecting spliced/unspliced matrices, eval=params$isvelo}
+## Run when isvelo is set to TRUE
 spliced.data.df <- data.df
 subset_cells <- intersect(colnames(spliced.data.df), colnames(unspliced.data.df))
 unspliced.data.df <- unspliced.data.df[,subset_cells]
+```
 
+```{r barcode info}
 # no. of plates:
 n_bc <- length(readLines(file(params$barcode_file)))
 sprintf("%s barcodes in white-list!",n_bc)
 if (params$method == "plate") {
   sprintf("%s plates found!",length(colnames(spliced.data.df))/n_bc)
 }
-
-
+```
+```{r setting up phenotable from csv, eval=params$meta_data != ""}
+## Setting up the phenotable ##
+## Load phenodata from meta data file from .csv file
+phenodata_all <- read_meta_data(path = params$meta_data,
+                                cell.names = colnames(data.df),
+                                group_id = meta_group_id,
+                                lab_col = params$lab_col)
+phenodata <- phenodata_all[[1]]
+pheno_matched <- phenodata_all[[2]]
+pheno_len <- phenodata_all[[3]]
+#Sanity check
+if (!identical(rownames(phenodata), colnames(spliced.data.df))) {
+    stop("meta-data row names and cell ids are different")
+}
+print("Setup meta-data from .csv file")
 ```
 
-
-```{r phenotable}
+```{r setting up phenotable from filenames, eval=params$extract_meta_columns != ""}
 ## Setting up the phenotable ##
-if (params$extract_meta_columns != "") {
-  phenodata_all <- extract_meta_data(cell.names = colnames(data.df),
-                                  group_id = meta_group_id, 
-                                  meta_cols= extract_meta_columns)
-  phenodata <- phenodata_all[[1]]
-  pheno_matched <- phenodata_all[[2]]
-  pheno_len <- phenodata_all[[3]]
-  if (!identical(rownames(phenodata), colnames(spliced.data.df))) {
-      stop("meta-data row names and cell ids are different")
-  }
-  write.csv(phenodata, paste(params$resultsdir,"phenodata_kbordered.csv", sep="/"))
-} else {
-  phenodata_all <- read_meta_data(path = params$meta_data,
-                                  cell.names = colnames(data.df),
-                                  group_id = meta_group_id,
-                                  lab_col = params$lab_col)
-  phenodata <- phenodata_all[[1]]
-  pheno_matched <- phenodata_all[[2]]
-  pheno_len <- phenodata_all[[3]]
-  #Sanity check
-  if (!identical(rownames(phenodata), colnames(spliced.data.df))) {
-      stop("meta-data row names and cell ids are different")
-  }
+# Make phenodata matrix from column names
+phenodata_all <- extract_meta_data(cell.names = colnames(data.df),
+                                group_id = meta_group_id, 
+                                meta_cols= extract_meta_columns)
+phenodata <- phenodata_all[[1]]
+pheno_matched <- phenodata_all[[2]]
+pheno_len <- phenodata_all[[3]]
+if (!identical(rownames(phenodata), colnames(spliced.data.df))) {
+    stop("meta-data row names and cell ids are different")
 }
-
+print("Derived phenodata from file names")
+write.csv(phenodata, paste(params$resultsdir,"phenodata_kbordered.csv", sep="/"))
 ```
 
 ## Plate Overviews
-
 Running QC over the plates: are there
-
-```{r}
-if (params$method == "plate") {
-  ## Running plate QC: are there certain patterns?
-  out.file <- paste(params$resultsdir,"PlateDiag_lndscp.pdf",sep="/")
-  plate_qc(data.df = data.df,
-           barcode_file = params$barcode_file, 
-           spliced.data.df = spliced.data.df, 
-           out.file = out.file )
-  # # Make a list of cell-names compatable with the excel file: plate#_A1, plate#_A2 etc.
-  dev.off()
-} else {
-  print("No plate QC performed!")
-}
+```{r Running plate QC, eval=params$method == "plate"}
+## Running plate QC: are there certain patterns?
+out.file <- paste(params$resultsdir,"PlateDiag_lndscp.pdf",sep="/")
+plate_qc(data.df = data.df,
+         barcode_file = params$barcode_file, 
+         spliced.data.df = spliced.data.df, 
+         out.file = out.file )
+# # Make a list of cell-names compatable with the excel file: plate#_A1, plate#_A2 etc.
+dev.off()
 ```
 
 #### Creating a SingleCellExperiment object for confounder check
@@ -311,7 +340,7 @@ print(missing.name)
 Setting thresholds for the removal of genes too lowly expressed in too few
 cells.
 
-```{r}
+```{r Performing ERCC QC}
 # Filtering on genes considered expressed: above a treshold for a set amount of cells:
 control_features <- vector("list", 0)
 # Adding spike-in information: (Testing)
@@ -338,7 +367,7 @@ sce <- sce[,!colnames(counts(sce)) %in% NaN_cells]
 
 Manually setting arbitrary count tresholds for the cells considered healthy.
 
-```{r}
+```{r UMI histogram}
 # Looking at the total number of RNA molecules per sample
 # UMI counts were used for this experiment
 hist(sce$total_counts, breaks = 100)
@@ -368,7 +397,7 @@ Also cells that are smaller will have relatively more spike-in allocated reads,
 and some cell types might have higher numbers of mitochondria, which is
 important to consider setting this boundary.
 
-```{r}
+```{r scatter plot - total counts/features}
 # Using Scater to plot percentages of spikes
 # Only works if meta data available.
 plot.list = list(
@@ -400,7 +429,7 @@ each dot represents a cell. Color labelled on `r params$lab_col`.
 Using manual thresholds for filtering out the outliers in the dataset and using
 an automatic approach, based on a PCA on the quality metrics.
 
-```{r}
+```{r filter cells}
 #---------------------------
 ## Manually set thresholds for filtering of the cells:
 #---------------------------
@@ -438,7 +467,7 @@ table(filters[["filter_by_mt"]])
 table(sce$use)
 ```
 
-```{r filter cells}
+```{r setting sce object after QC}
 # The quality check-passing cells are stored in the SCE-object in $use selection
 # of the counts table.
 
@@ -514,7 +543,6 @@ if (params$add.spikes.ercc) {
 ```
 
 In the dataset `r genes_expressed` are considered expressed.
-
 ## Check for confounding factors
 
 PCA on only the endogenous genes is used to evaluate the influence of the
@@ -538,7 +566,7 @@ reducedDim(sce_qc) <- NULL
 plotExprsFreqVsMean(sce_endo)
 
 ```
-```{r,  linewidth=60}
+```{r, Plotting highly expressed genes, linewidth=60}
 # The reads consumed by the top 50 expressed genes:
 plotHighestExprs(sce_qc)
 ```
@@ -568,7 +596,7 @@ Make the seurat object, 'seuset'. In this step you could filter the cells
 again, these however already have been filtered before in 'table clean-up',
 where the genes were taken that have >2 cells that have an expression >1.
 
-```{r create seurat object}
+```{r Creating seurat object}
 seuset <-
   CreateSeuratObject(
   counts = counts(sce_endo),
@@ -577,296 +605,20 @@ seuset <-
   )
 ```
 
-```{r Perform SCTransform, warning=FALSE}
- ##Perform SCTransform
-sct <- SCTransform(seuset, assay = "sf", variable.features.n=params$nhvg, vars.to.regress = params$vars_to_regress_sf, verbose = FALSE)
-
+```{r, normalizing dataset (velo), warning=FALSE, results = 'asis', eval=params$isvelo}
+norm.rmd <- ifelse(params$run.sct, "analysis-sct.Rmd", "analysis-norm-legacy.Rmd")
+res <- knitr::knit_child(here::here("analysis", norm.rmd), quiet = TRUE, envir=environment())
+cat(res, sep = '\n')
 ```
 
-```{r}
-# looking into the dataset
-VlnPlot(
-    object = sct,
-    features = c("nFeature_sf"),
-    group.by = params$lab_col
-)
-VlnPlot(
-    object = sct,
-    features = c("nCount_sf"),
-    group.by = params$lab_col
-)
-FeatureScatter(
-    object = sct,
-    feature1 = "nCount_sf",
-    feature2 = "nFeature_sf"
-)
-
-```
-
-```{r plot SCT normalized counts/features}
-# Seurat normalization: "a global-scaling normalization method LogNormalize that
-# normalizes the gene expression measurements for each cell by the total
-# expression, multiplies this by a scale factor (10,000 by default), and
-# log-transforms the result.""
-
-# looking into the dataset
-VlnPlot(
-    object = sct,
-    features = c("nFeature_SCT"),
-    group.by = params$lab_col
-)
-VlnPlot(
-    object = sct,
-    features = c("nCount_SCT"),
-    group.by = params$lab_col
-)
-FeatureScatter(
-    object = sct,
-    feature1 = "nCount_SCT",
-    feature2 = "nFeature_SCT"
-)
-saveRDS(seuset, paste(params$resultsdir,"seuset_qc+norm.rds",sep="/"))
-```
-
-#### Check confounders before & after normalization
-
-```{r seurat objects to sce}
-# Only take the entries that are matchable with the counttable entries:
-# Here we take the vst normalized and logp1 transformed counts from the SCT assay (data slot)
-
-filtered_cells <- intersect(rownames(phenodata), 
-                            colnames(sct@assays$SCT))
-pheno_matchedseuset <- phenodata[filtered_cells, ]
-pheno_orderedseuset <-
-pheno_matchedseuset[match(colnames(sct@assays$SCT),
-rownames(pheno_matchedseuset)), ]
-
-count_matrixseuset <- as.matrix(sct@assays$SCT@data)
-
-sce_seunorm <-
-SingleCellExperiment(
-assays = list(counts = count_matrixseuset),
-colData = pheno_orderedseuset,
-rowData = rownames(count_matrixseuset)
-)
-
-# A little trick to let scater know that there are actually logcounts in the dataset.
-assay(sce_seunorm, "logcounts") <- counts(sce_seunorm)
-
-# Calculate the quality metrics:
-sce_seunorm <- calculateQCMetrics(
-  sce_seunorm)
-```
-
-# Identifying the variation caused by each confounding factor
-#### Before & after normalization
-
-```{r check confounders in raw dataset}
-
-explanatory_variables <- as.factor(c(confounders_to_test, 
-                                     "total_features_by_counts", "total_counts"))
-#explanatory_variables_seu <- c("total_features_by_counts", "total_counts",
-#confounders_to_test)
-
-# This function and visualization performs a PCA analysis in the data object and
-# checks to what extend the variables that are put in, are explaining the
-# variance. The percentage of variance explained by each variable of interest:
-
-# Setting the colours:
-colourvector <- c()
-colourset <- brewer.pal(length(explanatory_variables),"Dark2")
-i <- 1
-for (variable_item in explanatory_variables){
-  colourvector[variable_item] <- colourset[i]
-  i <- i + 1
-}
-
-# Building combined plot, before and after normalization
-p1 <- plotExplanatoryVariables(sce_endo,
-                               exprs_values = "counts",
-                               variables = explanatory_variables) + 
-                               expand_limits(y = 1) + 
-                               scale_color_manual(values = colourvector) + 
-                               ggtitle("Explanatory Variables Before Normalization")
-p2 <- plotExplanatoryVariables(sce_seunorm,
-                               variables = explanatory_variables) + 
-                               expand_limits(y = 1) + 
-                               scale_color_manual(values = colourvector) + 
-                               ggtitle("Explanatory Variables After Normalization")
-multiplot(p1, p2)
-
-```
-
-
-```{r  running PCA on SCT normalized counts}
-sce_seunorm <- runPCA(
-  sce_seunorm, ncomponents = 20,
-  exprs_values = "counts"
-)
-```
-
-
-```{r PCA plot after SCT normalization,  linewidth=60}
-# plotting again the PCA's on raw-transformed and normalized values
-# raw log-transformation.
-#tmp <- runPCA(sce_endo, ncomponents = 50, exprs_values = "logcounts_raw")
-# PCA plot after log2 transformation
-# plotPCA(tmp,
-#         colour_by = params$lab_col,
-#         size_by = "total_features_by_counts")
-
-# PCA plot after seurat normalization
-plotPCA(sce_seunorm,
-        colour_by = params$lab_col,
-        size_by = "total_features_by_counts")
-
-```
-
-
-## Build unspliced assay
-
-Select the same cells and genes as in the spliced dataset
-
-```{r build unspliced assay}
-# df -> matrix -> SCE + phenodata
-cells_use <- colnames(sce_endo)
-genes_use <- rownames(sce_endo)
-
-sce_us <-
-  SingleCellExperiment(
-  assays = list(counts = unspliced.data.df),
-  colData = pheno_matched,
-  rowData = rownames(unspliced.data.df)
-  )
-
-control_features_us <- vector("list", 0)
-control_features_us_match <- vector("list", 0)
-
-# Dataset after filtering:
-sce_usmatch <- sce_us[genes_use,cells_use]
-
-# Adding spike-in information:
-if (params$add.spikes.mt) {
-  isSpike(sce_us, "MT") <- grepl("^MT-", rownames(sce_us))
-  control_features_us[["MT"]] <- isSpike(sce_us, "MT")
-  #matched sce object
-  isSpike(sce_usmatch, "MT") <- grepl("^MT-", rownames(sce_usmatch))
-  control_features_us_match[["MT"]] <- isSpike(sce_usmatch, "MT")
-}
-if (params$add.spikes.ercc) {
-  isSpike(sce_us, "ERCC") <- grepl("^ERCC-", rownames(sce_us))
-  control_features_us[["ERCC"]] <- isSpike(sce_us, "ERCC")
-  #matched sce object
-  isSpike(sce_usmatch, "ERCC") <- grepl("^ERCC-", rownames(sce_usmatch))
-  control_features_us_match[["ERCC"]] <- isSpike(sce_usmatch, "ERCC")
-}
-# Calculate the quality metrics:
-# Calculate the quality metrics:
-sce_us <- calculateQCMetrics(
-  sce_us, feature_controls = control_features_us
-    )
-
-sce_usmatch <- calculateQCMetrics(
-  sce_usmatch, feature_controls = control_features_us_match
-  )
-# Arbitrary thresholds:
-# Looking at the total number of RNA molecules per sample
-# UMI counts were used for this experiment
-hist(sce_us$total_counts, breaks = 100)
-abline(v = params$total_counts_tresh, col = "red")
-
-# Looking at the amount of unique genes per sample
-# This is the amount with ERCC included.
-hist(sce_us$total_features_by_counts, breaks = 100)
-abline(v= params$total_feat_tresh, col = "red")
-
-hist(sce_usmatch$total_counts, breaks = 100)
-abline(v = params$total_counts_tresh, col = "red")
-hist(sce_usmatch$total_features_by_counts, breaks = 100)
-abline(v= params$total_feat_tresh, col = "red")
-
-pdf(
-  paste(
-  params$resultsdir,
-  "Histograms_before+aftercellsFiltering_UnsplicedReads.pdf",
-  sep = "/"
-  )
-  )
-par(mfrow=c(2,2))
-hist(sce_us$total_counts, breaks = 100)
-abline(v = params$total_counts_tresh, col = "red")
-hist(sce_us$total_features_by_counts, breaks = 100)
-abline(v= params$total_feat_tresh, col = "red")
-hist(sce_usmatch$total_counts, breaks = 100)
-abline(v = params$total_counts_tresh, col = "red")
-hist(sce_usmatch$total_features_by_counts, breaks = 100)
-abline(v= params$total_feat_tresh, col = "red")
-dev.off()
-
-```
-## Build Seurat object with unspliced and spliced assay
-
-```{r add unspliced assay to Seurat object, warning=FALSE}
-unspliced_match <- unspliced.data.df[genes_use,cells_use]
-unspliced_match <- as.matrix(unspliced_match)
-#Add unspliced assay to seuset object
-seuset[['uf']] <- CreateAssayObject(counts = unspliced_match)
-```
-
-```{r perform SCTransform on unspliced assay , warning=FALSE}
-sct_uf <- SCTransform(seuset, assay = "uf", variable.features.n=params$nhvg, vars.to.regress = params$vars_to_regress_uf, verbose = FALSE)
-```
-
-## Highly variable genes & Scaling of the gene expression values
-
-```{r print VariableFeatures SCTransform}
-# FindVariableFeatures plots the dispersion (= a normalized measure of
-# cell-to-cell variation), as a function of average expression for each gene. In
-# their tutorial the Satija lab uses the cut-off of 2000 genes.
-# top 10 most variable genes
-top20 <- head(VariableFeatures(sct, assay = "SCT"), 20)
-top20_uf <- head(VariableFeatures(sct_uf, assay = "SCT"), 20)
-# plot variable features with labels:
-plot1 <- VariableFeaturePlot(sct, assay="SCT")
-plot2 <- LabelPoints(plot = plot1, points = top20, repel = TRUE)
-plot2
-plot3 <- VariableFeaturePlot(sct_uf, assay = "SCT")
-plot4 <- LabelPoints(plot = plot3, points = top20_uf, repel = TRUE)
-plot4
-# Preferable removing the genes that are highly expressed but with a low variance.
-length(x = sct@assays$SCT@var.features)
-#seu[["sf"]]@var.features[1:10]
-
-
-```
-
-```{r scaling and regressing,  linewidth=60}
-# Scaling the data to make it usable for dimensional reduction
-# using all the genes, could also select only the highly variable genes.
-# Optional regression is performed here.
-all.genes <- rownames(seuset)
-```
-
-## Running PCA analysis on the scaled data
-```{r running PCA}
-#seuset <- seu
-#rm(seu)
-#DefaultAssay(seuset) <- "sf"
-seuset <- RunPCA(
-    object = sct,
-    features = VariableFeatures(object = sct),
-    npcs = params$pcs_max_hvg,
-    ndims.print = 1:5,
-    nfeatures.print = 5
-)
-length(sct@assays$SCT@var.features)
-length(sct_uf@assays$SCT@var.features)
+```{r, normalizing dataset (quant), warning=FALSE, results = 'asis', eval=!params$isvelo}
+res <- knitr::knit_child(here::here("analysis", "analysis-sct-quant.Rmd"), quiet = TRUE, envir=environment())
+cat(res, sep = '\n')
 ```
 
 ## Visualizing PCA results:
-```{r}
+```{r PCA}
 #PrintPCA(object = seuset.scnorm, pcs.print = 1:5, genes.print = 5, use.full = FALSE)
-
 VizDimLoadings(object = seuset, dims = 1:10, reduction = "pca")
 VizDimLoadings(object = seuset, dims = 10:20, reduction = "pca")
 pdf(paste(
@@ -907,7 +659,7 @@ dev.off()
 
 ## Perform JackStraw Permutations to find significant PCs
 
-```{r running JackStraw}
+```{r running JackStraw, eval=params$run.jackstraw}
 #seuset.jack <- JackStraw(
 #    object = seuset,
 #    num.replicate = 100
@@ -915,20 +667,20 @@ dev.off()
 #seuset.jack <- ScoreJackStraw(seuset.jack, dims = 1:20)
 ```
 
-```{r}
+```{r JackStraw plot, eval=params$run.jackstraw}
 #JackStrawPlot(object = seuset.jack, dims = 1:20)
 ```
 
 ## Plotting Elbow plot to identify significant PCs
 This plot displays the standard deviations of the PCs and the
 
-```{r}
+```{r ElbowPlot}
 ElbowPlot(object = seuset, ndims = 35)
 ```
 
 ## Overview of different UMAPs with varying dimensional input
 
-```{r}
+```{r UMAP, warning=FALSE}
 #Generating a combined UMAP plot with various defined settings. Only a legend in
 #the first plotted (since this will be the same for the others). Generating a
 #combined plot with only a legend in the first plotted (since this will be the
@@ -981,7 +733,7 @@ for (umap in label.vector) {
 Based on the heatmaps, elbow (as well as the JackStraw indicating these are
 significant as well) the first 6 PCs can be used for further analysis.
 
-```{r}
+```{r saving environment}
 # Saving the dataset with the normalized, scaled and identified HVGs (stored in seuset.scnorm@var.genes).
 saveRDS(seuset, file= paste(params$resultsdir,"seusetv3_scnormHVG_velocity.rds", sep="/"))
 ```

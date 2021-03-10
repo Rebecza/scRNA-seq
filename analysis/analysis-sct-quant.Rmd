@@ -5,7 +5,7 @@ output: pdf_document
 
 ```{r Perform SCTransform, warning=FALSE}
  ##Perform SCTransform
-sct <- SCTransform(seuset, assay = "sf", variable.features.n=params$nhvg, vars.to.regress = params$vars_to_regress_sf, verbose = FALSE)
+sct <- SCTransform(seuset, assay = "sf", variable.features.n=params$nhvg, vars.to.regress = vars_to_regress_sf, verbose = FALSE)
 ```
 
 ```{r}

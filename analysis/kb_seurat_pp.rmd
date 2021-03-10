@@ -41,6 +41,9 @@ params:
   run.sct:
       label: "run.sct -- Perform SCTransform normalization"
       value: true
+  run.jackstraw:
+       label: "run.jackstraw -- Perform Jackstraw analysis"
+       value: true    
   add.spikes.ercc: 
       label: "add.spikes.ercc -- use ercc spike-ins (if present)"
       value: true
@@ -104,7 +107,7 @@ output:
     toc_depth: 2
     number_sections: true
 ---
-```{r include=FALSE}
+```{r loading libraries, include=FALSE}
 #Custom listings markdown template: https://stackoverflow.com/questions/21402157/colour-for-r-code-chunk-in-listings-package/21468454
 
 # Plate based assays:
@@ -118,6 +121,7 @@ output:
  # Set the meta_data parameter to the path of the csv file
 here::set_here()
 knitr::opts_knit$set(root.dir = here::here())
+#knitr::opts_knit$set(output.dir=here::here("analysis"))
 knitr::opts_chunk$set(tidy.opts=list(width.cutoff=60),tidy=TRUE)
 source(here::here("analysis", "utils.R"),local = knitr::knit_global())
 system(paste("mkdir -p ", params$resultsdir))
@@ -135,7 +139,24 @@ library(Seurat)
 library(scran)
 library(RColorBrewer)
 library(plot3D)
-## unlist parameters ##
+#Defaults
+vars_to_regress_sf = NULL
+vars_to_regress_uf = NULL
+remove_bc = FALSE
+## Small sanity checks
+if (params$method == "plate") {
+  remove_bc = TRUE
+}
+if (params$vars_to_regress_sf != "") {
+  vars_to_regress_sf = unlist(strsplit(params$vars_to_regress_sf,","))
+}
+if (params$vars_to_regress_uf != "") {
+  vars_to_regress_uf = unlist(strsplit(params$vars_to_regress_uf,","))
+}
+if (params$extract_meta_columns != "" && params$meta_data != "") {
+  stop("Provider either a meta-data.csv file or set extract_meta_columns but not both!")
+}
+## Unlist parameters ##
 label.vector = unlist(strsplit(params$umap_cols,","))
 # Unique combined ID per plate, for visualization purposes
 extract_meta_columns = unlist(strsplit(params$extract_meta_columns,","))
@@ -148,19 +169,6 @@ confounders_to_test = unlist(strsplit(params$confounders_to_test,","))
 # Marker genes for violin plots
 #explore_violin = c("SOX2","GAPDH")
 # Regression performed on the following variables:"
-vars_to_regress_sf = unlist(strsplit(params$vars_to_regress_sf,","))
-vars_to_regress_uf = unlist(strsplit(params$vars_to_regress_uf,","))
-#### Small sanitychecks #####
-if (params$extract_meta_columns != "" && params$meta_data !="") {
-  stop("Provider either a meta-data.csv file or set extract_meta_columns but not both!")
-}
-remove_bc = FALSE
-if (params$method == "plate") {
-  remove_bc = TRUE
-}
-is.velo <- as.logical(params$isvelo)
-
-
 ```
 ## *Cleaning up the counts table, for subset: `r params$cell_id_subset`*
 
@@ -171,9 +179,9 @@ is.velo <- as.logical(params$isvelo)
 The counts table is loaded along with the metadata of the cells within an
 Scater usable object. Scater will be used to look into the quality of the data
 and to help with filtering out bad cells or genes.
-
 Location of the file:
-```{r loading splice seperated dataset, message=FALSE, warning=FALSE, eval=is.velo}
+```{r loading splice seperated dataset, message=FALSE, warning=FALSE, eval=params$isvelo}
+## Run when isvelo is set to TRUE ##
 ## Splice seperated dataset: 
 # Optional edits on cell names: This only runs if a
 # substring that needs replacement was defined in parameters (old_col_pattern):
@@ -194,11 +202,11 @@ replace_col_old = params$old_col_pattern,
 replace_col_with = params$new_col_pattern
 )
 ```
-```{r loading dataset2, message=FALSE, warning=FALSE, eval=!is.velo}
+```{r loading quantification dataset, message=FALSE, warning=FALSE, eval=!params$isvelo}
 ## Load count tables (quantification)
 spliced.data.df = read_kb_counts(
   params$kb.dir,
-  "spliced",
+  "cells_x_genes",
   barcode_file = params$barcode_file,
   remove_bc = remove_bc,
   replace_col_old = params$old_col_pattern,
@@ -207,7 +215,7 @@ spliced.data.df = read_kb_counts(
 ```
 
 
-```{r, matching columns, eval=is.velo}
+```{r, matching spliced/unspliced matrix columns, eval=params$isvelo}
 # Make columnnames the same (order) between matrices
 ## TODO - remove check for quantification
 all_cells <- intersect(colnames(spliced.data.df),colnames(unspliced.data.df))
@@ -223,13 +231,13 @@ ifelse(!identical(colnames(spliced.data.df), colnames(unspliced.data.df)),
 
 ```
 
-```{r}
+```{r, setting spliced matrix}
 #Use spliced data df for further analysis
 data.df <- spliced.data.df
 ```
 
 ### Perform subsetting of dataset (optional)
-```{r filtering certain entries}
+```{r filtering cell ids}
 if (params$cell_id_filter_option == "out"){
   # checking the amount of cells in the dataset before filtering
   length(colnames(data.df))
@@ -250,13 +258,14 @@ if (params$cell_id_filter_option == "out"){
 }
 ```
 
-```{r, eval=is.velo}
-##??TODO add subset check for splice data df
+```{r intersecting spliced/unspliced matrices, eval=params$isvelo}
+## Run when isvelo is set to TRUE
 spliced.data.df <- data.df
 subset_cells <- intersect(colnames(spliced.data.df), colnames(unspliced.data.df))
 unspliced.data.df <- unspliced.data.df[,subset_cells]
 ```
-```{r}
+
+```{r barcode info}
 # no. of plates:
 n_bc <- length(readLines(file(params$barcode_file)))
 sprintf("%s barcodes in white-list!",n_bc)
@@ -264,50 +273,50 @@ if (params$method == "plate") {
   sprintf("%s plates found!",length(colnames(spliced.data.df))/n_bc)
 }
 ```
-
-```{r phenotable}
+```{r setting up phenotable from csv, eval=params$meta_data != ""}
 ## Setting up the phenotable ##
-if (params$extract_meta_columns != "") {
-  phenodata_all <- extract_meta_data(cell.names = colnames(data.df),
-                                  group_id = meta_group_id, 
-                                  meta_cols= extract_meta_columns)
-  phenodata <- phenodata_all[[1]]
-  pheno_matched <- phenodata_all[[2]]
-  pheno_len <- phenodata_all[[3]]
-  if (!identical(rownames(phenodata), colnames(spliced.data.df))) {
-      stop("meta-data row names and cell ids are different")
-  }
-  write.csv(phenodata, paste(params$resultsdir,"phenodata_kbordered.csv", sep="/"))
-} else {
-  phenodata_all <- read_meta_data(path = params$meta_data,
-                                  cell.names = colnames(data.df),
-                                  group_id = meta_group_id,
-                                  lab_col = params$lab_col)
-  phenodata <- phenodata_all[[1]]
-  pheno_matched <- phenodata_all[[2]]
-  pheno_len <- phenodata_all[[3]]
-  #Sanity check
-  if (!identical(rownames(phenodata), colnames(spliced.data.df))) {
-      stop("meta-data row names and cell ids are different")
-  }
+## Load phenodata from meta data file from .csv file
+phenodata_all <- read_meta_data(path = params$meta_data,
+                                cell.names = colnames(data.df),
+                                group_id = meta_group_id,
+                                lab_col = params$lab_col)
+phenodata <- phenodata_all[[1]]
+pheno_matched <- phenodata_all[[2]]
+pheno_len <- phenodata_all[[3]]
+#Sanity check
+if (!identical(rownames(phenodata), colnames(spliced.data.df))) {
+    stop("meta-data row names and cell ids are different")
 }
-
+print("Setup meta-data from .csv file")
 ```
+
+```{r setting up phenotable from filenames, eval=params$extract_meta_columns != ""}
+## Setting up the phenotable ##
+# Make phenodata matrix from column names
+phenodata_all <- extract_meta_data(cell.names = colnames(data.df),
+                                group_id = meta_group_id, 
+                                meta_cols= extract_meta_columns)
+phenodata <- phenodata_all[[1]]
+pheno_matched <- phenodata_all[[2]]
+pheno_len <- phenodata_all[[3]]
+if (!identical(rownames(phenodata), colnames(spliced.data.df))) {
+    stop("meta-data row names and cell ids are different")
+}
+print("Derived phenodata from file names")
+write.csv(phenodata, paste(params$resultsdir,"phenodata_kbordered.csv", sep="/"))
+```
+
 ## Plate Overviews
 Running QC over the plates: are there
-```{r}
-if (params$method == "plate") {
-  ## Running plate QC: are there certain patterns?
-  out.file <- paste(params$resultsdir,"PlateDiag_lndscp.pdf",sep="/")
-  plate_qc(data.df = data.df,
-           barcode_file = params$barcode_file, 
-           spliced.data.df = spliced.data.df, 
-           out.file = out.file )
-  # # Make a list of cell-names compatable with the excel file: plate#_A1, plate#_A2 etc.
-  dev.off()
-} else {
-  print("No plate QC performed!")
-}
+```{r Running plate QC, eval=params$method == "plate"}
+## Running plate QC: are there certain patterns?
+out.file <- paste(params$resultsdir,"PlateDiag_lndscp.pdf",sep="/")
+plate_qc(data.df = data.df,
+         barcode_file = params$barcode_file, 
+         spliced.data.df = spliced.data.df, 
+         out.file = out.file )
+# # Make a list of cell-names compatable with the excel file: plate#_A1, plate#_A2 etc.
+dev.off()
 ```
 
 #### Creating a SingleCellExperiment object for confounder check
@@ -331,7 +340,7 @@ print(missing.name)
 Setting thresholds for the removal of genes too lowly expressed in too few
 cells.
 
-```{r}
+```{r Performing ERCC QC}
 # Filtering on genes considered expressed: above a treshold for a set amount of cells:
 control_features <- vector("list", 0)
 # Adding spike-in information: (Testing)
@@ -358,7 +367,7 @@ sce <- sce[,!colnames(counts(sce)) %in% NaN_cells]
 
 Manually setting arbitrary count tresholds for the cells considered healthy.
 
-```{r}
+```{r UMI histogram}
 # Looking at the total number of RNA molecules per sample
 # UMI counts were used for this experiment
 hist(sce$total_counts, breaks = 100)
@@ -388,7 +397,7 @@ Also cells that are smaller will have relatively more spike-in allocated reads,
 and some cell types might have higher numbers of mitochondria, which is
 important to consider setting this boundary.
 
-```{r}
+```{r scatter plot - total counts/features}
 # Using Scater to plot percentages of spikes
 # Only works if meta data available.
 plot.list = list(
@@ -420,7 +429,7 @@ each dot represents a cell. Color labelled on `r params$lab_col`.
 Using manual thresholds for filtering out the outliers in the dataset and using
 an automatic approach, based on a PCA on the quality metrics.
 
-```{r}
+```{r filter cells}
 #---------------------------
 ## Manually set thresholds for filtering of the cells:
 #---------------------------
@@ -458,7 +467,7 @@ table(filters[["filter_by_mt"]])
 table(sce$use)
 ```
 
-```{r filter cells}
+```{r setting sce object after QC}
 # The quality check-passing cells are stored in the SCE-object in $use selection
 # of the counts table.
 
@@ -557,7 +566,7 @@ reducedDim(sce_qc) <- NULL
 plotExprsFreqVsMean(sce_endo)
 
 ```
-```{r,  linewidth=60}
+```{r, Plotting highly expressed genes, linewidth=60}
 # The reads consumed by the top 50 expressed genes:
 plotHighestExprs(sce_qc)
 ```
@@ -587,7 +596,7 @@ Make the seurat object, 'seuset'. In this step you could filter the cells
 again, these however already have been filtered before in 'table clean-up',
 where the genes were taken that have >2 cells that have an expression >1.
 
-```{r create seurat object}
+```{r Creating seurat object}
 seuset <-
   CreateSeuratObject(
   counts = counts(sce_endo),
@@ -596,19 +605,19 @@ seuset <-
   )
 ```
 
-```{r, warning=FALSE, results = 'asis', eval=is.velo}
+```{r, normalizing dataset (velo), warning=FALSE, results = 'asis', eval=params$isvelo}
 norm.rmd <- ifelse(params$run.sct, "analysis-sct.Rmd", "analysis-norm-legacy.Rmd")
-res <- knitr::knit_child(here::here("analysis", norm.rmd), quiet = TRUE)
+res <- knitr::knit_child(here::here("analysis", norm.rmd), quiet = TRUE, envir=environment())
 cat(res, sep = '\n')
 ```
 
-```{r, warning=FALSE, results = 'asis', eval=!is.velo}
-res <- knitr::knit_child(here::here("analysis", "analysis-sct-quant.Rmd"), quiet = TRUE)
+```{r, normalizing dataset (quant), warning=FALSE, results = 'asis', eval=!params$isvelo}
+res <- knitr::knit_child(here::here("analysis", "analysis-sct-quant.Rmd"), quiet = TRUE, envir=environment())
 cat(res, sep = '\n')
 ```
 
 ## Visualizing PCA results:
-```{r}
+```{r PCA}
 #PrintPCA(object = seuset.scnorm, pcs.print = 1:5, genes.print = 5, use.full = FALSE)
 VizDimLoadings(object = seuset, dims = 1:10, reduction = "pca")
 VizDimLoadings(object = seuset, dims = 10:20, reduction = "pca")
@@ -650,7 +659,7 @@ dev.off()
 
 ## Perform JackStraw Permutations to find significant PCs
 
-```{r running JackStraw}
+```{r running JackStraw, eval=params$run.jackstraw}
 #seuset.jack <- JackStraw(
 #    object = seuset,
 #    num.replicate = 100
@@ -658,20 +667,20 @@ dev.off()
 #seuset.jack <- ScoreJackStraw(seuset.jack, dims = 1:20)
 ```
 
-```{r}
+```{r JackStraw plot, eval=params$run.jackstraw}
 #JackStrawPlot(object = seuset.jack, dims = 1:20)
 ```
 
 ## Plotting Elbow plot to identify significant PCs
 This plot displays the standard deviations of the PCs and the
 
-```{r}
+```{r ElbowPlot}
 ElbowPlot(object = seuset, ndims = 35)
 ```
 
 ## Overview of different UMAPs with varying dimensional input
 
-```{r warning=FALSE}
+```{r UMAP, warning=FALSE}
 #Generating a combined UMAP plot with various defined settings. Only a legend in
 #the first plotted (since this will be the same for the others). Generating a
 #combined plot with only a legend in the first plotted (since this will be the
@@ -724,7 +733,7 @@ for (umap in label.vector) {
 Based on the heatmaps, elbow (as well as the JackStraw indicating these are
 significant as well) the first 6 PCs can be used for further analysis.
 
-```{r}
+```{r saving environment}
 # Saving the dataset with the normalized, scaled and identified HVGs (stored in seuset.scnorm@var.genes).
 saveRDS(seuset, file= paste(params$resultsdir,"seusetv3_scnormHVG_velocity.rds", sep="/"))
 ```

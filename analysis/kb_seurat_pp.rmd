@@ -641,6 +641,7 @@ JackStrawPlot(object = seuset.jack, dims = 1:params$pcs_max_hvg)
 ```
 
 ## Plotting Elbow plot to identify significant PCs
+
 This plot displays the standard deviations of the PCs.
 
 ```{r ElbowPlot}

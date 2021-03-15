@@ -168,7 +168,9 @@ pcs_for_overview = as.integer(unlist(strsplit(params$pcs_for_overview,",")))
 #Checking variability explained by confounding factors
 confounders_to_test = unlist(strsplit(params$confounders_to_test,","))
 ```
-
+```{r writing params to yaml file}
+yaml::write_yaml(params, paste(params$resultsdir,"settings.yaml", sep="/"))
+```
 ## Cleaning the `r params$cell_id_filter_pattern` count table 
 
 The cells and genes of the raw count table will be filtered according to 

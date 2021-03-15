@@ -104,6 +104,27 @@ extract_meta_data <- function(cell.names=NULL, group_id="Library", meta_cols=NUL
   return(list(pheno_ordered, pheno_matched, ncol_meta))
 }
 
+read_meta_basic <- function(path=NULL, cell.names=NULL) {
+  sample_folders <- list.files(path, 
+                               recursive = FALSE, include.dirs = FALSE)
+  meta.basic <- data.frame(matrix(NA, nrow = length(cell.names), ncol = 1))
+  rownames(meta.basic) <- gsub("-", "_", cell.names)
+  colnames(meta.basic) <- "ident"
+  for (s in 1:length(sample_folders)){
+    data <- gsub("-","_",sample_folders[s])
+    match <- grepl(data, rownames(meta.basic))
+    if(any(match)) {
+      meta.basic[match,] = data
+    } else {
+      stop("samples names are not part of cell names. Check meta data!")
+    }
+  }
+  return(meta.basic)
+}
+  
+
+
+
 #Reads meta data from 
 read_meta_sample <- function(path=NULL, cell.names=NULL, group_id="library", add.id.col=TRUE) {
   phenodata <- read.csv(path, sep=";", row.names = 1, stringsAsFactors = FALSE)

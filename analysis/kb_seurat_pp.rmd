@@ -279,6 +279,9 @@ if (params$method == "384plate") {
 
 ### Set up meta data table
 ```{r setting up phenotable from csv - sample, eval=params$meta_data != "" && params$meta_type == "sample"}
+phenodata <- read_meta_basic(path=params$kb.dir, cell.names = colnames(data.df))
+
+
 phenodata <- read_meta_sample(path = "~/Documents/Projects/R/scRNA-seq/data/sample_meta.csv",
                                 cell.names = colnames(data.df),
                                 group_id = c("library","timepoint"))

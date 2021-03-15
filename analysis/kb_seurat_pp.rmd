@@ -4,7 +4,7 @@ params:
   method: 
     label: "method -- experimental method"
     choices: ['384plate', 'droplet']
-    value: 'plate'
+    value: '384plate'
   kb.dir: 
     label: "kb.dir -- directory containing kb-python output"
     value: /Users/tilman_work/Documents/Projects/R/testset/kallistobus
@@ -17,6 +17,10 @@ params:
   meta_data:
     label: "meta_data -- .csv file containing cell meta data. Alternative for extract_meta_columns"
     value: "" #/Users/tilman_work/Documents/Projects/R/scRNA-seq/data/pbmc_meta_test.csv  #used when extract_phenotypes = FALSE
+  meta_type:
+    label: "meta_type -- type of meta data (default samples)"
+    choices: ["sample", 'cell']  
+    value: "sample"
   extract_meta_columns: 
     label: "extract_meta_columns -- extracts meta data from cell names (name fields separated by '_'). Alternative for meta_data."
     value: Genome,Method,Lineage,Timepoint,Replicate,Library,Well
@@ -120,7 +124,7 @@ output:
  # Additional columns can be provided for statistical analysis, such as umap embeddings. An example can be found in the data folder (pbmc_meta_test.csv).
  # Set the meta_data parameter to the path of the csv file
 here::set_here()
-knitr::opts_knit$set(root.dir = here::here())
+knitr::opts_knit$set(root.dir = here::here(), output.dir = here::here())
 #knitr::opts_knit$set(output.dir=here::here("analysis"))
 knitr::opts_chunk$set(tidy.opts=list(width.cutoff=60),tidy=TRUE)
 source(here::here("utils.R"),local = knitr::knit_global())
@@ -145,7 +149,7 @@ vars_to_regress_sf = NULL
 vars_to_regress_uf = NULL
 remove_bc = FALSE
 ## Small sanity checks
-if (params$method == "plate") {
+if (params$method == "384plate") {
   remove_bc = TRUE
 }
 if (params$vars_to_regress_sf != "") {
@@ -268,19 +272,28 @@ unspliced.data.df <- unspliced.data.df[,subset_cells]
 # no. of plates:
 n_bc <- length(readLines(file(params$barcode_file)))
 sprintf("%s barcodes in white-list!",n_bc)
-if (params$method == "plate") {
+if (params$method == "384plate") {
   sprintf("%s plates found!",length(colnames(spliced.data.df))/n_bc)
 }
 ```
 
 ### Set up meta data table
-
-```{r setting up phenotable from csv, eval=params$meta_data != ""}
-## Load phenodata from meta data file from .csv file
-phenodata_all <- read_meta_data(path = params$meta_data,
+```{r setting up phenotable from csv - sample, eval=params$meta_data != "" && params$meta_type == "sample"}
+phenodata <- read_meta_sample(path = "~/Documents/Projects/R/scRNA-seq/data/sample_meta.csv",
                                 cell.names = colnames(data.df),
-                                group_id = meta_group_id,
-                                lab_col = params$lab_col)
+                                group_id = c("library","timepoint"))
+pheno_len <- ncol(phenodata)
+#Sanity check
+if (!identical(rownames(phenodata), colnames(spliced.data.df))) {
+    stop("meta-data row names and cell ids are different")
+}
+print("Setup meta-data from .csv file")
+```
+
+```{r setting up phenotable from csv - cells, eval=params$meta_data != "" && params$meta_type == "cell"}
+## Load phenodata from meta data file from .csv file
+phenodata_all <- read_meta_cells(path = "~/Documents/Projects/R/scRNA-seq/data/phenodata_kbordered.csv",
+                                cell.names = colnames(data.df), group_id = "Library")
 phenodata <- phenodata_all[[1]]
 pheno_matched <- phenodata_all[[2]]
 pheno_len <- phenodata_all[[3]]
@@ -310,7 +323,7 @@ write.csv(phenodata, paste(params$resultsdir,"phenodata_kbordered.csv", sep="/")
 
 Running QC over the plates: plotting the total amount of UMI (and ERCC) counts per wells of the 384-well plate. Allowing to check for any patterns accross the plate, of wells containing low counts. 
 
-```{r Running plate QC, eval=params$method == "plate"}
+```{r Running plate QC, eval=params$method == "384plate"}
 ## Running plate QC: are there certain patterns?
 out.file <- paste(params$resultsdir,"PlateDiag_lndscp.pdf",sep="/")
 plate_qc(data.df = data.df,
@@ -335,7 +348,6 @@ sce <- SingleCellExperiment(assays = list(counts = data.df),
 ```{r filtering empty entries, echo = FALSE, linewidth=60}
 # Checking if the dataset contains genes without a symbol name:
 missing.name <- rownames(sce[is.na(rownames(counts(sce)))])
-print(missing.name)
 ```
 
 ###  Adding spikes and calculating QC metrics
@@ -578,7 +590,6 @@ seuset <-
 
 ```{r, normalizing dataset (velo), warning=FALSE, results = 'asis', eval=params$isvelo}
 norm.rmd <- ifelse(params$run.sct, "analysis-sct.Rmd", "analysis-norm-legacy.Rmd")
-knitr::opts_knit$set(output.dir = params$resultsdir)
 res <- knitr::knit_child(here::here(norm.rmd), quiet = TRUE, envir=environment())
 cat(res, sep = '\n')
 ```

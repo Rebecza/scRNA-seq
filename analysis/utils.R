@@ -73,6 +73,7 @@ read_kb_counts <- function(dir, name, barcode_file, remove_bc=TRUE, replace_col_
     colnames(combined) <- cells$cell_id
   } else {
     # Remove DNA barcode and add wellid 
+    print(cells$barcode)
     cells$cell_id <- paste(gsub("^.*?_", "", cells$cell), cells$barcode, sep = "_")
     cells$cell_id <- gsub("-", "_", cells$cell_id)
     # replace cell names of the count matrix
@@ -104,21 +105,48 @@ extract_meta_data <- function(cell.names=NULL, group_id="Library", meta_cols=NUL
 }
 
 #Reads meta data from 
-read_meta_data <- function(path=NULL, cell.names=NULL, group_id="Library", lab_col="Library") {
-  phenodata <- read.csv(file = path)
-  #Combine genome and sample column
-  base_cols <- c("Genome","Sample","Barcode")
-  `%notin%` <- Negate(`%in%`)
-  if (c(base_cols,lab_col) %notin% colnames(phenodata)) {
-    stop("Base columns not found. The meta should minimally contain columns: Sample,Genome,Barcode and Library")
+read_meta_sample <- function(path=NULL, cell.names=NULL, group_id="library", add.id.col=TRUE) {
+  phenodata <- read.csv(path, sep=";", row.names = 1, stringsAsFactors = FALSE)
+  rownames(phenodata) <-  gsub("-", "_", rownames(phenodata))
+  meta_2 <- data.frame(matrix(NA, nrow = length(cell.names), ncol = ncol(phenodata)))
+  colnames(meta_2) <- names(phenodata)
+  rownames(meta_2) <- cell.names
+  for (row in 1:nrow(phenodata)) {
+    data <- phenodata[row,]
+    match <- grepl(rownames(data) , rownames(meta_2))
+    if(any(match)) {
+      meta_2[match,] = data
+    } else {
+      stop("samples names are not part of cell names. Check meta data!")
+    }
   }
-  rownames(phenodata) <- apply(phenodata[,base_cols],1,paste,collapse = "_")
+  #Split well id from cell names
+  if (add.id.col){
+    meta_2$id <-  gsub(".*_(.*)", "\\1", colnames(data.df))
+  }
+  #Create grouped id for visualization purposes
+  if (length(group_id) > 1) {
+    meta_2$combined_id <- apply(meta_2[,group_id], 1, paste, collapse = "_")
+  } else {
+    meta_2$combined_id <- phenodata[,group_id]
+  }
+  return(meta_2)
+}
+
+#Reads meta data from 
+read_meta_cells <- function(path=NULL, cell.names=NULL, group_id="Library", add.id.col=TRUE) {
+  phenodata <- read.csv(path, row.names = 1, stringsAsFactors = FALSE)
+  rownames(phenodata) <-  gsub("-", "_", rownames(phenodata))
+  #Combine genome and sample column
   ncol_meta <- ncol(phenodata)
   #Add custom id to phenodata
+  if (add.id.col){
+    phenodata$id <- gsub(".*_(.*)", "\\1", colnames(data.df))
+  }
   if (length(group_id) > 1) {
-    phenodata$combined_id <- apply(phenodata[,group_id], 1, paste, collapse = "_")
+     phenodata$combined_id <- apply(phenodata[,group_id], 1, paste, collapse = "_")
   } else {
-    phenodata$combined_id <- phenodata[,group_id]
+     phenodata$combined_id <- phenodata[,group_id]
   }
   ## Replace by tinyverse using the columns mentioned with group_id
   # Only take the entries that are matchable with the counttable entries:
@@ -128,6 +156,15 @@ read_meta_data <- function(path=NULL, cell.names=NULL, group_id="Library", lab_c
   pheno_ordered <- pheno_matched[match(cell.names,rownames(pheno_matched)),]
   return(list(pheno_ordered, pheno_matched, ncol_meta))
 }
+
+
+
+
+
+
+
+
+
 
 ####### Plotting functions for plate QC ######
 QC_ERCC_384plot <- function(file, name){

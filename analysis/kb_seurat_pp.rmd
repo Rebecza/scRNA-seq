@@ -123,8 +123,6 @@ output:
  # The sample,genome and barcode columns will be combined to match the barcode ids in the spliced/unspliced count matrix.
  # Additional columns can be provided for statistical analysis, such as umap embeddings. An example can be found in the data folder (pbmc_meta_test.csv).
  # Set the meta_data parameter to the path of the csv file
-knitr::opts_knit$set(root.dir = "/Users/tilman_work/Documents/Projects/R/scRNA-seq/analysis", output.dir="/Users/tilman_work/Documents/Projects/R/scRNA-seq/analysis")
-#knitr::opts_knit$set(output.dir=here::here("analysis"))
 knitr::opts_chunk$set(tidy.opts=list(width.cutoff=60),tidy=TRUE)
 source("utils.R",local = knitr::knit_global())
 #source(here::here("analysis", "utils.R"),local = knitr::knit_global())

@@ -19,8 +19,8 @@ params:
     value: "" #/Users/tilman_work/Documents/Projects/R/scRNA-seq/data/pbmc_meta_test.csv  #used when extract_phenotypes = FALSE
   meta_type:
     label: "meta_type -- type of meta data (default samples)"
-    choices: ["sample", 'cell']  
-    value: "sample"
+    choices: ["sample", 'cell', "ident", "names"]  
+    value: "ident"
   extract_meta_columns: 
     label: "extract_meta_columns -- extracts meta data from cell names (name fields separated by '_'). Alternative for meta_data."
     value: Genome,Method,Lineage,Timepoint,Replicate,Library,Well
@@ -29,16 +29,16 @@ params:
      value: /Users/tilman_work/Documents/Projects/R/scRNA-seq/output
   meta_group_id: 
       label: "meta_group_id -- combine meta data fields for plotting, creates variable combined_id (separate multiple values by comma)" 
-      value: Library
+      value: ident
   lab_col: 
       label: "lab_col -- meta data field used for QC plot labels (for instance: combined_id)"
-      value: Library
+      value: ident
   umap_cols: 
       label: "umap_cols -- meta data fields used for Seurat's RunUMAP plot labels (separate multiple values by comma)"
-      value: Method  
+      value: ident  
   confounders_to_test: 
       label: "confounders_to_test -- meta data variables used for confounder testing (separate multiple values by comma)"
-      value: Library
+      value: ident
   isvelo:
       label: "is_velo -- velocity workflow"
       value: true
@@ -236,7 +236,7 @@ ifelse(!identical(colnames(spliced.data.df), colnames(unspliced.data.df)),
 ```
 
 ```{r, setting spliced matrix}
-#Use spliced data df for further analysis
+#Use spliced data df for further analysis and create basic meta data from file names
 data.df <- spliced.data.df
 ```
 
@@ -278,50 +278,42 @@ if (params$method == "384plate") {
 ```
 
 ### Set up meta data table
-```{r setting up phenotable from csv - sample, eval=params$meta_data != "" && params$meta_type == "sample"}
+```{r setting up default phenotable}
 phenodata <- read_meta_basic(path=params$kb.dir, cell.names = colnames(data.df))
+pheno_len <- 1
+pheno_matched <-  phenodata
 
-
-phenodata <- read_meta_sample(path = "~/Documents/Projects/R/scRNA-seq/data/sample_meta.csv",
-                                cell.names = colnames(data.df),
-                                group_id = c("library","timepoint"))
-pheno_len <- ncol(phenodata)
-#Sanity check
-if (!identical(rownames(phenodata), colnames(spliced.data.df))) {
-    stop("meta-data row names and cell ids are different")
+if (params$meta_type == "cell") {
+   phenodata <- read_meta_sample(path = "~/Documents/Projects/R/scRNA-seq/data/sample_meta.csv",
+                                 cell.names = colnames(data.df),
+                                 group_id = c("library","timepoint"),
+                                 mode = params$meta_type)
+   pheno_matched <-  phenodata
+   pheno_len <- ncol(phenodata)
 }
-print("Setup meta-data from .csv file")
-```
-
-```{r setting up phenotable from csv - cells, eval=params$meta_data != "" && params$meta_type == "cell"}
-## Load phenodata from meta data file from .csv file
-phenodata_all <- read_meta_cells(path = "~/Documents/Projects/R/scRNA-seq/data/phenodata_kbordered.csv",
-                                cell.names = colnames(data.df), group_id = "Library")
-phenodata <- phenodata_all[[1]]
-pheno_matched <- phenodata_all[[2]]
-pheno_len <- phenodata_all[[3]]
-#Sanity check
-if (!identical(rownames(phenodata), colnames(spliced.data.df))) {
-    stop("meta-data row names and cell ids are different")
+if (params$meta_type == "sample") {
+   phenodata <- read_meta_sample(path = "~/Documents/Projects/R/scRNA-seq/data/sample_meta.csv",
+                                 cell.names = colnames(data.df),
+                                 group_id = c("library","timepoint"),
+                                 mode = params$meta_type)
+   pheno_matched <-  phenodata
+   pheno_len <- ncol(phenodata)
 }
-print("Setup meta-data from .csv file")
-```
-
-```{r setting up phenotable from filenames, eval=params$extract_meta_columns != ""}
-# Make meta data table from column names
-phenodata_all <- extract_meta_data(cell.names = colnames(data.df),
-                                group_id = meta_group_id, 
-                                meta_cols= extract_meta_columns)
-phenodata <- phenodata_all[[1]]
-pheno_matched <- phenodata_all[[2]]
-pheno_len <- phenodata_all[[3]]
-if (!identical(rownames(phenodata), colnames(spliced.data.df))) {
-    stop("meta-data row names and cell ids are different")
+if (params$meta_type == "names") {
+  phenodata_all <- extract_meta_data(cell.names = colnames(data.df),
+                                 group_id = meta_group_id, 
+                                 meta_cols= extract_meta_columns)
+  phenodata <- phenodata_all[[1]]
+  pheno_matched <- phenodata_all[[2]]
+  pheno_len <- phenodata_all[[3]]
 }
-print("Derived phenodata from file names")
-write.csv(phenodata, paste(params$resultsdir,"phenodata_kbordered.csv", sep="/"))
-```
 
+if (!identical(rownames(pheno_matched), colnames(spliced.data.df))) {
+     stop("meta-data row names and cell ids are different")
+}
+print("Writing meta data to file")
+write.csv(phenodata, paste(params$resultsdir,"phenodata.csv", sep="/"), quote = F)
+```
 ## Plate overviews
 
 Running QC over the plates: plotting the total amount of UMI (and ERCC) counts per wells of the 384-well plate. Allowing to check for any patterns accross the plate, of wells containing low counts. 

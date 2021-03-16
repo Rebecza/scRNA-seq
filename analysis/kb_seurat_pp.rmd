@@ -16,11 +16,11 @@ params:
     value: /Users/tilman_work/Documents/Projects/R/scRNA-seq/data/MT_genes.txt
   meta_data:
     label: "meta_data -- .csv file containing cell meta data. Alternative for extract_meta_columns"
-    value: ~/Documents/Projects/R/scRNA-seq/data/sample_meta.csv
+    value: ~/Documents/Projects/R/scRNA-seq/data/meta2.csv
   meta_type:
     label: "meta_type -- type of meta data (default samples)"
     choices: ["sample", 'cell', "ident", "names"]  
-    value: "sample"
+    value: "ident"
   extract_meta_columns: 
     label: "extract_meta_columns -- extracts meta data from cell names (name fields separated by '_'). Alternative for meta_data."
     value: Genome,Method,Lineage,Timepoint,Replicate,Library,Well

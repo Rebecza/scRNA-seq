@@ -109,7 +109,7 @@ read_meta_basic <- function(path=NULL, cell.names=NULL) {
                                recursive = FALSE, include.dirs = FALSE)
   meta.basic <- data.frame(matrix(NA, nrow = length(cell.names), ncol = 2))
   rownames(meta.basic) <- gsub("-", "_", cell.names)
-  colnames(meta.basic) <- c("sample","ident")
+  colnames(meta.basic) <- c("sample","library")
   for (s in 1:length(sample_folders)){
     data <- gsub("-","_",sample_folders[s])
     match <- grepl(data, rownames(meta.basic))
@@ -125,10 +125,10 @@ read_meta_basic <- function(path=NULL, cell.names=NULL) {
 #Reads meta data from csv, either specified on a sample or cell level
 read_meta_data <- function(path=NULL, cell.names=NULL, group_id="library", add.id.col=TRUE, mode="sample") {
   phenodata <- read.csv(path, sep=";", row.names = 1, stringsAsFactors = FALSE)
+  rownames(phenodata) <-  gsub("-", "_", rownames(phenodata))
   if (mode =="cell" && !identical(rownames(phenodata),cell.names)){
     stop("meta data cell names do not match dataset cell names!")
   }
-  rownames(phenodata) <-  gsub("-", "_", rownames(phenodata))
   meta_2 <- data.frame(matrix(NA, nrow = length(cell.names), ncol = ncol(phenodata)))
   colnames(meta_2) <- names(phenodata)
   rownames(meta_2) <- cell.names

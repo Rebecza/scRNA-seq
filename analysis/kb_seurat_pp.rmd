@@ -10,19 +10,19 @@ params:
     value: /Users/tilman_work/Documents/Projects/R/testset/kallistobus
   barcode_file: 
     label: "barcode_file -- .tab delimited file with 2-col layout for plate based methods (with DNA barcode and well-id)"
-    value: /Users/tilman_work/Documents/Projects/R/scRNA-seq/data/barcode_384.tab
+    value: ../data/barcode_384.tab
   mt_genes_file:
     label: "mt_genes_file -- .txt file containing one column with mitchondrial genes"
-    value: /Users/tilman_work/Documents/Projects/R/scRNA-seq/data/MT_genes.txt
+    value: ../data/MT_genes.txt
   meta_data:
     label: "meta_data -- .csv file containing cell meta data. Alternative for extract_meta_columns"
-    value: ~/Documents/Projects/R/scRNA-seq/data/examples/cell_meta_example.csv
+    value: ../data/examples/cell_meta_example.csv
   extract_meta_columns: 
     label: "extract_meta_columns -- extracts meta data from cell names (name fields separated by '_'). Alternative for meta_data."
     value: ""  #genome,spike-in,reporter,cell_type,timepoint,library,index,combined_id
   resultsdir:
      label: "resultsdir -- output directory for qc files" 
-     value: /Users/tilman_work/Documents/Projects/R/scRNA-seq/output
+     value: ../output
   meta_group_id: 
       label: "meta_group_id -- combine meta data fields for plotting, creates variable combined_id (separate multiple values by comma)" 
       value: library
@@ -37,10 +37,10 @@ params:
       value: library
   isvelo:
       label: "is_velo -- velocity workflow"
-      value: false
+      value: true
   run.sct:
       label: "run.sct -- perform SCTransform normalization, FALSE runs log(p1) NormalizeData, HVG selection and ScaleData in Seurat"
-      value: false
+      value: true
   run.jackstraw:
        label: "run.jackstraw -- perform Jackstraw analysis (does not work with SCTransform)"
        value: false    

@@ -526,7 +526,7 @@ table(endo_genes)
 sce_endo <- sce_qc[endo_genes,]
 reducedDim(sce_qc) <- NULL
 
-plotExprsFreqVsMean(sce_endo)
+#plotExprsFreqVsMean(sce_endo)
 plotQC(sce_endo, type = "exprs-freq-vs-mean")
 ```
 

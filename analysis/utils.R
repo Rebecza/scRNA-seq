@@ -85,12 +85,16 @@ read_kb_counts <- function(dir, name, barcode_file, remove_bc=TRUE, replace_col_
 }
 
 ##Extracts meta data from sample names
-extract_meta_data <- function(cell.names=NULL, group_id="Library", meta_cols=NULL) {
+extract_meta_data <- function(cell.names=NULL, group_id="library", meta_cols=NULL, add.id.col=TRUE) {
   phenodata <- data.frame(row.names=cell.names)
   phenodata$names <- row.names(phenodata)
+  print(rownames(phenodata))
   phenodata <- separate(phenodata, col = "names", into = meta_cols, sep = "_")
   ncol_meta <- ncol(phenodata)
   ## Replace by tinyverse using the columns mentioned with group_id
+  if (add.id.col){
+    phenodata$well <-  gsub(".*_(.*)", "\\1", cell.names)
+  }
   if (length(group_id) > 1) {
     phenodata$combined_id <- apply(phenodata[,group_id], 1, paste, collapse = "_")
   } else {
@@ -104,9 +108,7 @@ extract_meta_data <- function(cell.names=NULL, group_id="Library", meta_cols=NUL
 }
 
 #Add basic meta data based on sample
-read_meta_basic <- function(path=NULL, cell.names=NULL) {
-  sample_folders <- list.files(path, 
-                               recursive = FALSE, include.dirs = FALSE)
+read_meta_basic <- function(sample_folders=NULL, cell.names=NULL) {
   meta.basic <- data.frame(matrix(NA, nrow = length(cell.names), ncol = 2))
   rownames(meta.basic) <- gsub("-", "_", cell.names)
   colnames(meta.basic) <- c("sample","library")
@@ -123,11 +125,18 @@ read_meta_basic <- function(path=NULL, cell.names=NULL) {
 }
 
 #Reads meta data from csv, either specified on a sample or cell level
-read_meta_data <- function(path=NULL, cell.names=NULL, group_id="library", add.id.col=TRUE, mode="sample") {
+read_meta_data <- function(path=NULL, cell.names=NULL, group_id="library", add.id.col=TRUE, samples=NULL) {
   phenodata <- read.csv(path, sep=";", row.names = 1, stringsAsFactors = FALSE)
   rownames(phenodata) <-  gsub("-", "_", rownames(phenodata))
-  if (mode =="cell" && !identical(rownames(phenodata),cell.names)){
-    stop("meta data cell names do not match dataset cell names!")
+  all_samples <-  gsub("-", "_", samples)
+  sprintf("%s dimension meta data:",dim(phenodata))
+  sprintf("%s cells in data set:", length(cell.names))
+  if (identical(rownames(phenodata[cell.names,]), cell.names)){
+    print("assuming cell-level meta data")
+  } else if (identical(rownames(phenodata[all_samples,]), all_samples)){
+    print("assuming sample-level meta-data")
+  } else{
+    stop("incorrect meta data")
   }
   meta_2 <- data.frame(matrix(NA, nrow = length(cell.names), ncol = ncol(phenodata)))
   colnames(meta_2) <- names(phenodata)
@@ -143,7 +152,7 @@ read_meta_data <- function(path=NULL, cell.names=NULL, group_id="library", add.i
   }
   #Split well id from cell names
   if (add.id.col){
-    meta_2$id <-  gsub(".*_(.*)", "\\1", colnames(data.df))
+    meta_2$identity <-  gsub(".*_(.*)", "\\1", cell.names)
   }
   #Create grouped id for visualization purposes
   if (length(group_id) > 1) {

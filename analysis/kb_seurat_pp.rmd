@@ -16,14 +16,10 @@ params:
     value: /Users/tilman_work/Documents/Projects/R/scRNA-seq/data/MT_genes.txt
   meta_data:
     label: "meta_data -- .csv file containing cell meta data. Alternative for extract_meta_columns"
-    value: ~/Documents/Projects/R/scRNA-seq/data/meta2.csv
-  meta_type:
-    label: "meta_type -- type of meta data (default samples)"
-    choices: ["sample", 'cell', "ident", "names"]  
-    value: "ident"
+    value: ~/Documents/Projects/R/scRNA-seq/data/sample_meta_example.csv
   extract_meta_columns: 
     label: "extract_meta_columns -- extracts meta data from cell names (name fields separated by '_'). Alternative for meta_data."
-    value: Genome,Method,Lineage,Timepoint,Replicate,Library,Well
+    value: ""  #genome,spike-in,reporter,cell_type,timepoint,library,index,combined_id
   resultsdir:
      label: "resultsdir -- output directory for qc files" 
      value: /Users/tilman_work/Documents/Projects/R/scRNA-seq/output
@@ -41,10 +37,10 @@ params:
       value: library
   isvelo:
       label: "is_velo -- velocity workflow"
-      value: true
+      value: false
   run.sct:
       label: "run.sct -- perform SCTransform normalization, FALSE runs log(p1) NormalizeData, HVG selection and ScaleData in Seurat"
-      value: true
+      value: false
   run.jackstraw:
        label: "run.jackstraw -- perform Jackstraw analysis (does not work with SCTransform)"
        value: false    
@@ -81,7 +77,7 @@ params:
       value: 'none'    
   cell_id_filter_pattern: 
       label: "cell_id_subset -- cell ids to include/exclude based on cell_id_subset_filter"
-      value: _A9    
+      value: "" #_A9    
   pcs_for_overview:
       label: "pcs_for_overview -- principal components for overview in combined umap plot, runs UMAP for PC 1-value"
       value: '10,20,30,40,50'
@@ -125,7 +121,6 @@ output:
  # Set the meta_data parameter to the path of the csv file
 knitr::opts_chunk$set(tidy.opts=list(width.cutoff=60),tidy=TRUE)
 source("utils.R",local = knitr::knit_global())
-#source(here::here("analysis", "utils.R"),local = knitr::knit_global())
 system(paste("mkdir -p ", params$resultsdir))
 # Loading the important repositories #
 require("devtools")
@@ -273,27 +268,20 @@ if (params$method == "384plate") {
 
 ### Set up meta data table
 ```{r setting up default phenotable}
-phenodata <- read_meta_basic(path=params$kb.dir, cell.names = colnames(data.df))
+all_samples <- list.files(params$kb.dir, recursive = FALSE, include.dirs = FALSE)
+phenodata <- read_meta_basic(sample_folders=all_samples, cell.names = colnames(data.df))
 pheno_len <- 1
 pheno_matched <-  phenodata
 
-if (params$meta_type == "cell") {
+if (params$meta_data != "" && params$extract_meta_columns == "") {
    phenodata <- read_meta_data(path = params$meta_data,
                                  cell.names = colnames(data.df),
                                  group_id = params$meta_group_id,
-                                 mode = params$meta_type)
+                                 samples = all_samples)
    pheno_matched <-  phenodata
    pheno_len <- ncol(phenodata)
 }
-if (params$meta_type == "sample") {
-   phenodata <- read_meta_data(path = params$meta_data,
-                                 cell.names = colnames(data.df),
-                                 group_id = params$meta_group_id,
-                                 mode = params$meta_type)
-   pheno_matched <-  phenodata
-   pheno_len <- ncol(phenodata)
-}
-if (params$meta_type == "names") {
+if (params$extract_meta_columns != "" && params$meta_data == "") {
   phenodata_all <- extract_meta_data(cell.names = colnames(data.df),
                                  group_id = meta_group_id, 
                                  meta_cols= extract_meta_columns)

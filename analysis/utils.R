@@ -88,7 +88,6 @@ read_kb_counts <- function(dir, name, barcode_file, remove_bc=TRUE, replace_col_
 extract_meta_data <- function(cell.names=NULL, group_id="library", meta_cols=NULL, add.id.col=TRUE) {
   phenodata <- data.frame(row.names=cell.names)
   phenodata$names <- row.names(phenodata)
-  print(rownames(phenodata))
   phenodata <- separate(phenodata, col = "names", into = meta_cols, sep = "_")
   ncol_meta <- ncol(phenodata)
   ## Replace by tinyverse using the columns mentioned with group_id
@@ -116,7 +115,8 @@ read_meta_basic <- function(sample_folders=NULL, cell.names=NULL) {
     data <- gsub("-","_",sample_folders[s])
     match <- grepl(data, rownames(meta.basic))
     if(any(match)) {
-      meta.basic[match,] = data
+      meta.basic[match,]$sample = data
+      meta.basic[match,]$library = paste0("lib_",s)
     } else {
       stop("samples names are not part of cell names. Check meta data!")
     }

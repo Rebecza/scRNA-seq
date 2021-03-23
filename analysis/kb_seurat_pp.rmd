@@ -20,7 +20,7 @@ params:
   meta_type:
       label: "meta_data_level -- type of meta data"
       choices: ["sample", "cell","names","default"]
-      value: names       
+      value: default       
   extract_meta_columns: 
     label: "extract_meta_columns -- extracts meta data from cell names (name fields separated by '_'). Alternative for meta_data."
     value:  genome,spike-in,reporter,cell_type,timepoint,library,index,cell_id
@@ -307,7 +307,7 @@ if (params$meta_data != "" && params$meta_type == "sample") {
   
 }
 if (!identical(rownames(pheno_matched), colnames(spliced.data.df))) {
-     stop("meta-data row names and cell ids are different")
+     stop("meta-data row names and cell names are different!")
 }
 print("Writing meta data to file")
 write.csv(phenodata, paste(params$resultsdir,"phenodata.csv", sep="/"), quote = F)

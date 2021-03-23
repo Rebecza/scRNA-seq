@@ -124,7 +124,7 @@ read_meta_basic <- function(sample_folders=NULL, cell.names=NULL) {
 }
 
 #Reads meta data from csv, either specified on a sample or cell level
-read_meta_data <- function(path=NULL, cell.names=NULL, group_id="library", add.id.col=TRUE, sample_meta=FALSE, samples=NULL) {
+read_meta_data <- function(path=NULL, cell.names=NULL, group_id="library", add.id.col=TRUE, sample_meta=TRUE, samples=NULL) {
   phenodata <- read.csv(path, sep=";", row.names = 1, stringsAsFactors = FALSE)
   all_samples <-  unique(gsub("_([^_]*)$", "", cell.names))
   rownames(phenodata) <-  gsub("-", "_", rownames(phenodata))

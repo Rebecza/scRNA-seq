@@ -16,10 +16,14 @@ params:
     value: ../data/MT_genes.txt
   meta_data:
     label: "meta_data -- .csv file containing cell meta data. Alternative for extract_meta_columns"
-    value: "" #../data/examples/cell_meta_example.csv
+    value: "" #../data/examples/sample_meta_example.csv
+  meta_type:
+      label: "meta_data_level -- type of meta data"
+      choices: ["sample", "cell","names","default"]
+      value: default       
   extract_meta_columns: 
     label: "extract_meta_columns -- extracts meta data from cell names (name fields separated by '_'). Alternative for meta_data."
-    value: ""  #genome,spike-in,reporter,cell_type,timepoint,library,index,combined_id
+    value:  "" #genome,spike-in,reporter,cell_type,timepoint,library,index,cell_id
   resultsdir:
      label: "resultsdir -- output directory for qc files" 
      value: ../output
@@ -74,10 +78,10 @@ params:
   cell_id_filter_option: 
       label: "cell_id_subset_filter -- filter options for cell_id_subset" 
       choices: ['in', 'out', 'none']
-      value: 'none'    
+      value: none    
   cell_id_filter_pattern: 
       label: "cell_id_subset -- cell ids to include/exclude based on cell_id_subset_filter"
-      value: "" #_A9    
+      value: "" #_d12    
   pcs_for_overview:
       label: "pcs_for_overview -- principal components for overview in combined umap plot, runs UMAP for PC 1-value"
       value: '10,20,30,40,50'
@@ -268,30 +272,42 @@ if (params$method == "384plate") {
 
 ### Set up meta data table
 ```{r setting up default phenotable}
-all_samples <- list.files(params$kb.dir, recursive = FALSE, include.dirs = FALSE)
-phenodata <- read_meta_basic(sample_folders=all_samples, cell.names = colnames(data.df))
-pheno_len <- 1
-pheno_matched <-  phenodata
-
-if (params$meta_data != "" && params$extract_meta_columns == "") {
+all_samples <-  unique(gsub("_([^_]*)$", "", colnames(data.df)))
+if (params$meta_data != "" && params$meta_type == "sample") {
    phenodata <- read_meta_data(path = params$meta_data,
-                                 cell.names = colnames(data.df),
-                                 group_id = params$meta_group_id,
-                                 samples = all_samples)
+                               cell.names = colnames(data.df),
+                               group_id = params$meta_group_id,
+                               samples=all_samples)
+                              
    pheno_matched <-  phenodata
    pheno_len <- ncol(phenodata)
-}
-if (params$extract_meta_columns != "" && params$meta_data == "") {
+  
+} else if (params$meta_data != "" && params$meta_type == "cell") {
+   phenodata <- read_meta_data(path = params$meta_data,
+                               cell.names = colnames(data.df),
+                               group_id = params$meta_group_id,
+                               samples=all_samples,
+                               sample_meta=FALSE)
+   pheno_matched <-  phenodata
+   pheno_len <- ncol(phenodata)   
+   
+   
+} else if(params$extract_meta_columns != "" && params$meta_type == "names" ) {
   phenodata_all <- extract_meta_data(cell.names = colnames(data.df),
                                  group_id = meta_group_id, 
                                  meta_cols= extract_meta_columns)
   phenodata <- phenodata_all[[1]]
   pheno_matched <- phenodata_all[[2]]
   pheno_len <- phenodata_all[[3]]
+  
+} else {
+  phenodata <- read_meta_basic(cell.names = colnames(data.df), sample_folders=all_samples)
+  pheno_len <- 1
+  pheno_matched <-  phenodata
+  
 }
-
 if (!identical(rownames(pheno_matched), colnames(spliced.data.df))) {
-     stop("meta-data row names and cell ids are different")
+     stop("meta-data row names and cell names are different!")
 }
 print("Writing meta data to file")
 write.csv(phenodata, paste(params$resultsdir,"phenodata.csv", sep="/"), quote = F)

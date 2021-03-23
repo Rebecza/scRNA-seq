@@ -109,14 +109,13 @@ extract_meta_data <- function(cell.names=NULL, group_id="library", meta_cols=NUL
 #Add basic meta data based on sample
 read_meta_basic <- function(sample_folders=NULL, cell.names=NULL) {
   meta.basic <- data.frame(matrix(NA, nrow = length(cell.names), ncol = 2))
-  rownames(meta.basic) <- gsub("-", "_", cell.names)
+  rownames(meta.basic) <- cell.names
   colnames(meta.basic) <- c("sample","library")
   for (s in 1:length(sample_folders)){
-    data <- gsub("-","_",sample_folders[s])
+    data <- sample_folders[s]
     match <- grepl(data, rownames(meta.basic))
     if(any(match)) {
-      meta.basic[match,]$sample = data
-      meta.basic[match,]$library = paste0("lib_",s)
+      meta.basic[match,] = data
     } else {
       stop("samples names are not part of cell names. Check meta data!")
     }
@@ -125,10 +124,16 @@ read_meta_basic <- function(sample_folders=NULL, cell.names=NULL) {
 }
 
 #Reads meta data from csv, either specified on a sample or cell level
-read_meta_data <- function(path=NULL, cell.names=NULL, group_id="library", add.id.col=TRUE, samples=NULL) {
+read_meta_data <- function(path=NULL, cell.names=NULL, group_id="library", add.id.col=TRUE, sample_meta=FALSE, samples=NULL) {
   phenodata <- read.csv(path, sep=";", row.names = 1, stringsAsFactors = FALSE)
+  all_samples <-  unique(gsub("_([^_]*)$", "", cell.names))
   rownames(phenodata) <-  gsub("-", "_", rownames(phenodata))
-  all_samples <-  gsub("-", "_", samples)
+  if(sample_meta) {
+    all_samples <-  gsub("-", "_", samples)
+    phenodata <- phenodata[intersect(rownames(phenodata), all_samples),]
+  } else {
+    phenodata <- phenodata[intersect(rownames(phenodata), colnames(data.df)),]
+  }
   sprintf("%s dimension meta data:",dim(phenodata))
   sprintf("%s cells in data set:", length(cell.names))
   if (identical(rownames(phenodata[cell.names,]), cell.names)){

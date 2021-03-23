@@ -20,10 +20,10 @@ params:
   meta_type:
       label: "meta_data_level -- type of meta data"
       choices: ["sample", "cell","names","default"]
-      value: default       
+      value: names       
   extract_meta_columns: 
     label: "extract_meta_columns -- extracts meta data from cell names (name fields separated by '_'). Alternative for meta_data."
-    value:  "" #genome,spike-in,reporter,cell_type,timepoint,library,index,cell_id
+    value:  genome,spike-in,reporter,cell_type,timepoint,library,index,cell_id
   resultsdir:
      label: "resultsdir -- output directory for qc files" 
      value: ../output
@@ -273,19 +273,25 @@ if (params$method == "384plate") {
 ### Set up meta data table
 ```{r setting up default phenotable}
 all_samples <-  unique(gsub("_([^_]*)$", "", colnames(data.df)))
-if (params$meta_data != "" && params$meta_type != "default") {
-  sample_meta=TRUE
-  if (params$meta_type == "cell") {
-    sample_meta=FALSE
-  }
+if (params$meta_data != "" && params$meta_type == "sample") {
+   phenodata <- read_meta_data(path = params$meta_data,
+                               cell.names = colnames(data.df),
+                               group_id = params$meta_group_id,
+                               samples=all_samples)
+                              
+   pheno_matched <-  phenodata
+   pheno_len <- ncol(phenodata)
+  
+} else if (params$meta_data != "" && params$meta_type == "cell") {
    phenodata <- read_meta_data(path = params$meta_data,
                                cell.names = colnames(data.df),
                                group_id = params$meta_group_id,
                                samples=all_samples,
-                               sample_meta=sample_meta)
+                               sample_meta=FALSE)
    pheno_matched <-  phenodata
-   pheno_len <- ncol(phenodata)
-  
+   pheno_len <- ncol(phenodata)   
+   
+   
 } else if(params$extract_meta_columns != "" && params$meta_type == "names" ) {
   phenodata_all <- extract_meta_data(cell.names = colnames(data.df),
                                  group_id = meta_group_id, 

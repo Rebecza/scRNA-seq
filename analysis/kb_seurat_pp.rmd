@@ -16,14 +16,14 @@ params:
     value: ../data/MT_genes.txt
   meta_data:
     label: "meta_data -- .csv file containing cell meta data. Alternative for extract_meta_columns"
-    value: ../data/examples/cell_meta_example.csv
+    value: "" #../data/examples/sample_meta_example.csv
   meta_type:
       label: "meta_data_level -- type of meta data"
       choices: ["sample", "cell","names","default"]
       value: default       
   extract_meta_columns: 
     label: "extract_meta_columns -- extracts meta data from cell names (name fields separated by '_'). Alternative for meta_data."
-    value:  genome,spike-in,reporter,cell_type,timepoint,library,index,cell_id
+    value:  "" #genome,spike-in,reporter,cell_type,timepoint,library,index,cell_id
   resultsdir:
      label: "resultsdir -- output directory for qc files" 
      value: ../output

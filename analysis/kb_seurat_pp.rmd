@@ -16,7 +16,7 @@ params:
     value: ../data/MT_genes.txt
   meta_data:
     label: "meta_data -- .csv file containing cell meta data. Alternative for extract_meta_columns"
-    value: "" #../data/examples/sample_meta_example.csv
+    value: ../data/examples/cell_meta_example.csv
   meta_type:
       label: "meta_data_level -- type of meta data"
       choices: ["sample", "cell","names","default"]
@@ -78,10 +78,10 @@ params:
   cell_id_filter_option: 
       label: "cell_id_subset_filter -- filter options for cell_id_subset" 
       choices: ['in', 'out', 'none']
-      value: none    
+      value: in    
   cell_id_filter_pattern: 
       label: "cell_id_subset -- cell ids to include/exclude based on cell_id_subset_filter"
-      value: "" #_d12    
+      value: _d12    
   pcs_for_overview:
       label: "pcs_for_overview -- principal components for overview in combined umap plot, runs UMAP for PC 1-value"
       value: '10,20,30,40,50'

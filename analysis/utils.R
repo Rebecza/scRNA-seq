@@ -89,7 +89,6 @@ extract_meta_data <- function(cell.names=NULL, group_id="library", meta_cols=NUL
   phenodata <- data.frame(row.names=cell.names)
   phenodata$names <- row.names(phenodata)
   phenodata <- separate(phenodata, col = "names", into = meta_cols, sep = "_")
-  ncol_meta <- ncol(phenodata)
   ## Replace by tinyverse using the columns mentioned with group_id
   if (add.id.col){
     phenodata$well <-  gsub(".*_(.*)", "\\1", cell.names)
@@ -103,7 +102,7 @@ extract_meta_data <- function(cell.names=NULL, group_id="library", meta_cols=NUL
   pheno_matched <- phenodata[rownames(phenodata) %in% cell.names,]
   # Matching phenodata with the dataset ordering
   pheno_ordered <- pheno_matched[match(cell.names,rownames(pheno_matched)),]
-  return(list(pheno_ordered, pheno_matched, ncol_meta))
+  return(list(pheno_ordered, pheno_matched))
 }
 
 #Add basic meta data based on sample
@@ -162,8 +161,6 @@ read_meta_data <- function(path=NULL, cell.names=NULL, group_id="library", add.i
     meta_2$identity <-  gsub(".*_(.*)", "\\1", cell.names)
   }
   #Create grouped id for visualization purposes
-  print(colnames(meta_2))
-  
   if (length(group_id) > 1) {
     meta_2$combined_id <- apply(meta_2[,group_id], 1, paste, collapse = "_")
   } else {

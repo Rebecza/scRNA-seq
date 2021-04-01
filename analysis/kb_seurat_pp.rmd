@@ -16,7 +16,7 @@ params:
     value: ../data/MT_genes.txt
   meta_data:
     label: "meta_data -- .csv file containing cell meta data. Alternative for extract_meta_columns"
-    value: "" #../data/examples/sample_meta_example.csv
+    value: ."" #./data/examples/cell_meta_example.csv
   meta_type:
       label: "meta_data_level -- type of meta data"
       choices: ["sample", "cell","names","default"]
@@ -100,16 +100,11 @@ params:
   new_col_pattern:
       label: "new_col_pattern -- new column substring to replace old_column_pattern"
       value: ""
-
-
 output:
-  pdf_document:
-    pandoc_args: --listings
-    includes:
-      in_header: preamble.tex
-    toc: true
-    toc_depth: 2
-    number_sections: true
+  html_document:
+    df_print: paged
+    toc: yes
+    toc_depth: '2'
 ---
 ```{r loading libraries, include=FALSE}
 #Custom listings markdown template: https://stackoverflow.com/questions/21402157/colour-for-r-code-chunk-in-listings-package/21468454
@@ -276,20 +271,23 @@ all_samples <-  unique(gsub("_([^_]*)$", "", colnames(data.df)))
 if (params$meta_data != "" && params$meta_type == "sample") {
    phenodata <- read_meta_data(path = params$meta_data,
                                cell.names = colnames(data.df),
-                               group_id = params$meta_group_id,
+                               group_id = meta_group_id,
                                samples=all_samples)
                               
    pheno_matched <-  phenodata
    pheno_len <- ncol(phenodata)
+
   
 } else if (params$meta_data != "" && params$meta_type == "cell") {
    phenodata <- read_meta_data(path = params$meta_data,
                                cell.names = colnames(data.df),
-                               group_id = params$meta_group_id,
+                               group_id = meta_group_id,
                                samples=all_samples,
                                sample_meta=FALSE)
    pheno_matched <-  phenodata
-   pheno_len <- ncol(phenodata)   
+   pheno_len <- ncol(phenodata) 
+
+   
    
    
 } else if(params$extract_meta_columns != "" && params$meta_type == "names" ) {
@@ -298,11 +296,12 @@ if (params$meta_data != "" && params$meta_type == "sample") {
                                  meta_cols= extract_meta_columns)
   phenodata <- phenodata_all[[1]]
   pheno_matched <- phenodata_all[[2]]
-  pheno_len <- phenodata_all[[3]]
+  pheno_len <- length(pheno_matched)
+
   
 } else {
   phenodata <- read_meta_basic(cell.names = colnames(data.df), sample_folders=all_samples)
-  pheno_len <- 1
+  pheno_len <- 2
   pheno_matched <-  phenodata
   
 }

@@ -100,16 +100,18 @@ params:
   new_col_pattern:
       label: "new_col_pattern -- new column substring to replace old_column_pattern"
       value: ""
-
-
 output:
+  html_document:
+    df_print: paged
+    toc: yes
+    toc_depth: '2'
   pdf_document:
-    pandoc_args: --listings
     includes:
       in_header: preamble.tex
-    toc: true
+    number_sections: yes
+    pandoc_args: --listings
+    toc: yes
     toc_depth: 2
-    number_sections: true
 ---
 ```{r loading libraries, include=FALSE}
 #Custom listings markdown template: https://stackoverflow.com/questions/21402157/colour-for-r-code-chunk-in-listings-package/21468454
@@ -276,7 +278,7 @@ all_samples <-  unique(gsub("_([^_]*)$", "", colnames(data.df)))
 if (params$meta_data != "" && params$meta_type == "sample") {
    phenodata <- read_meta_data(path = params$meta_data,
                                cell.names = colnames(data.df),
-                               group_id = params$meta_group_id,
+                               group_id = meta_group_id,
                                samples=all_samples)
                               
    pheno_matched <-  phenodata
@@ -285,7 +287,7 @@ if (params$meta_data != "" && params$meta_type == "sample") {
 } else if (params$meta_data != "" && params$meta_type == "cell") {
    phenodata <- read_meta_data(path = params$meta_data,
                                cell.names = colnames(data.df),
-                               group_id = params$meta_group_id,
+                               group_id = meta_group_id,
                                samples=all_samples,
                                sample_meta=FALSE)
    pheno_matched <-  phenodata

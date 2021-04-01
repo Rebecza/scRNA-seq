@@ -115,7 +115,9 @@ read_meta_basic <- function(sample_folders=NULL, cell.names=NULL) {
     data <- sample_folders[s]
     match <- grepl(data, rownames(meta.basic))
     if(any(match)) {
-      meta.basic[match,] = data
+      meta.basic[match,]$sample = data
+      meta.basic[match,]$library = paste0("sample_",s)
+      
     } else {
       stop("samples names are not part of cell names. Check meta data!")
     }
@@ -160,6 +162,8 @@ read_meta_data <- function(path=NULL, cell.names=NULL, group_id="library", add.i
     meta_2$identity <-  gsub(".*_(.*)", "\\1", cell.names)
   }
   #Create grouped id for visualization purposes
+  print(colnames(meta_2))
+  
   if (length(group_id) > 1) {
     meta_2$combined_id <- apply(meta_2[,group_id], 1, paste, collapse = "_")
   } else {

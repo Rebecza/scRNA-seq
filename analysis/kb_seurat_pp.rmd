@@ -84,16 +84,16 @@ params:
       value: "" #_d12    
   pcs_for_overview:
       label: "pcs_for_overview -- principal components for overview in combined umap plot, runs UMAP for PC 1-value"
-      value: '10,20,30,40,50'
+      value: "10,20,30,40,50"
   pcs_max_hvg: 
       label: "pcs_max_hvg -- max number of principal components to visualize"
       value: 70
   vars_to_regress_sf:
       label: "vars_to_regress -- variables to regress out (spliced, for example: nCount_sf,nFeature_sf)"
-      value:  nCount_sf
+      value:  nCount_sf,nFeature_sf
   vars_to_regress_uf:
       label: "vars_to_regress -- variables to regress out (unspliced, for example: nCount_uf,nFeature_uf))"
-      value:  nCount_uf
+      value:  nCount_uf,nFeature_uf
   old_col_pattern: 
       label: "old_col_pattern -- old column substring to replace by new_column_pattern"
       value: ""
@@ -137,26 +137,21 @@ library(scran)
 library(RColorBrewer)
 library(plot3D)
 #Defaults
-vars_to_regress_sf = NULL
-vars_to_regress_uf = NULL
 remove_bc = FALSE
 ## Small sanity checks
 if (params$method == "384plate") {
   remove_bc = TRUE
 }
-
 vars_to_regress_sf = as.vector(strsplit(params$vars_to_regress_sf,",")[[1]])
 vars_to_regress_uf = as.vector(strsplit(params$vars_to_regress_uf,",")[[1]])
 ## Unlist parameters ##
-label.vector = unlist(strsplit(params$umap_cols,","))
-# Unique combined ID per plate, for visualization purposes
-extract_meta_columns = unlist(strsplit(params$extract_meta_columns,","))
+label.vector = as.vector(strsplit(params$umap_cols,",")[[1]])
 # Combined columns for plotting in meta data
-meta_group_id = unlist(strsplit(params$meta_group_id,","))
+meta_group_id = as.vector(strsplit(params$meta_group_id,",")[[1]])
 # PCs used for different UMAP representations
-pcs_for_overview = as.integer(unlist(strsplit(params$pcs_for_overview,",")))
+pcs_for_overview = as.vector(strsplit(params$pcs_for_overview,",")[[1]])
 #Checking variability explained by confounding factors
-confounders_to_test = unlist(strsplit(params$confounders_to_test,","))
+confounders_to_test = as.vector(strsplit(params$confounders_to_test,",")[[1]])
 ```
 ```{r writing params to yaml file}
 yaml::write_yaml(params, paste(params$resultsdir,"settings.yaml", sep="/"))
@@ -289,6 +284,8 @@ if (params$meta_data != "" && params$meta_type == "sample") {
    
    
 } else if(params$extract_meta_columns != "" && params$meta_type == "names" ) {
+  # Unique combined ID per plate, for visualization purposes
+  extract_meta_columns = as.vector(strsplit(params$extract_meta_columns,",")[[1]])
   phenodata_all <- extract_meta_data(cell.names = colnames(data.df),
                                  group_id = meta_group_id, 
                                  meta_cols= extract_meta_columns)

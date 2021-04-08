@@ -42,11 +42,6 @@ VlnPlot(
     features = c("nCount_sf"),
     group.by = params$lab_col
 )
-#VlnPlot(
-#  object = seuset,
-#    features = explore_violin,
-#    group.by = params$lab_col
-#)
 FeatureScatter(
     object = seuset,
     feature1 = "nCount_sf",
@@ -159,16 +154,18 @@ sce_seunorm <- runPCA(
 
 ```{r,  linewidth=60}
 # plotting again the PCA's on raw-transformed and normalized values
+assay(sce_endo, "logcounts_raw") <- log2(counts(sce_endo) + 1)
 # raw log-transformation.
 tmp <- runPCA(sce_endo, ncomponents = 50, exprs_values = "logcounts_raw")
 # PCA plot after log2 transformation
-plotPCA(tmp,
+p1 <- plotPCA(tmp,
         colour_by = params$lab_col,
         size_by = "total_features_by_counts")
 # PCA plot after seurat normalization
-plotPCA(sce_seunorm,
+p2 <- plotPCA(sce_seunorm,
         colour_by = params$lab_col,
         size_by = "total_features_by_counts")
+multiplot(p1, p2, cols = 2)
 ```
 
 

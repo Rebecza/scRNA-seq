@@ -1,5 +1,5 @@
 ---
-title: "kb scRNA-seq pre-processing with velocity preparations"
+title: "SORT-seq dataset with velocity preparations"
 params:
   method: 
     label: "method -- experimental method"
@@ -7,35 +7,35 @@ params:
     value: '384plate'
   kb.dir: 
     label: "kb.dir -- directory containing kb-python output"
-    value: /Users/tilman_work/Documents/Projects/R/testset/kallistobus
+    value: /scratch/snabel/scrna/CMdiff_mon-EB-EHT_d4-26_all_s2s_develop/results/kallistobus/
   barcode_file: 
     label: "barcode_file -- .tab delimited file with 2-col layout for plate based methods (with DNA barcode and well-id)"
-    value: ../data/barcode_384.tab
+    value: /scratch/snabel/scrna/barcode_384.tab
   mt_genes_file:
     label: "mt_genes_file -- .txt file containing one column with mitchondrial genes"
-    value: ../data/MT_genes.txt
+    value: /scratch/snabel/scrna/genomes/genome_addons/MT_genes.txt
   meta_data:
     label: "meta_data -- .csv file containing cell meta data. Alternative for extract_meta_columns"
-    value: ."" #./data/examples/cell_meta_example.csv
+    value: "" #../data/examples/sample_meta_example.csv
   meta_type:
       label: "meta_data_level -- type of meta data"
       choices: ["sample", "cell","names","default"]
-      value: default       
+      value: names      
   extract_meta_columns: 
     label: "extract_meta_columns -- extracts meta data from cell names (name fields separated by '_'). Alternative for meta_data."
-    value:  "" #genome,spike-in,reporter,cell_type,timepoint,library,index,cell_id
+    value:  "genome,spike-in,reporter,method,lineage,timepoint,replicate,library,cell_id"
   resultsdir:
      label: "resultsdir -- output directory for qc files" 
-     value: ../output
+     value: ../output_EHT_releasepatch
   meta_group_id: 
       label: "meta_group_id -- combine meta data fields for plotting, creates variable combined_id (separate multiple values by comma)" 
-      value: library
+      value: timepoint,lineage,method
   lab_col: 
       label: "lab_col -- meta data field used for QC plot labels (for instance: combined_id)"
       value: library
   umap_cols: 
       label: "umap_cols -- meta data fields used for Seurat's RunUMAP plot labels (separate multiple values by comma)"
-      value: library
+      value: library,timepoint,combined_id
   confounders_to_test: 
       label: "confounders_to_test -- meta data variables used for confounder testing (separate multiple values by comma)"
       value: library
@@ -44,7 +44,7 @@ params:
       value: true
   run.sct:
       label: "run.sct -- perform SCTransform normalization, FALSE runs log(p1) NormalizeData, HVG selection and ScaleData in Seurat"
-      value: true
+      value: false
   run.jackstraw:
        label: "run.jackstraw -- perform Jackstraw analysis (does not work with SCTransform)"
        value: false    
@@ -62,10 +62,10 @@ params:
       value: 50
   gene_tresh: 
       label: "gene_tresh -- gene filter: threshold for genes considered expressed"
-      value: 0
+      value: 1
   amount_cells_expr: 
       label: "amount_cells_expr -- gene filter: threshold for minimal amount of cells a gene should be expressed in"
-      value: 0
+      value: 2
   total_counts_tresh: 
       label: "total_counts_tresh -- cell filter: threshold for minimal amount of UMI counts detected in a cell"
       value: 1000
@@ -78,13 +78,13 @@ params:
   cell_id_filter_option: 
       label: "cell_id_subset_filter -- filter options for cell_id_subset" 
       choices: ['in', 'out', 'none']
-      value: none    
+      value: in   
   cell_id_filter_pattern: 
       label: "cell_id_subset -- cell ids to include/exclude based on cell_id_subset_filter"
-      value: "" #_d12    
+      value: "EHT"  
   pcs_for_overview:
       label: "pcs_for_overview -- principal components for overview in combined umap plot, runs UMAP for PC 1-value"
-      value: "10,20,30,40,50"
+      value: '5,10,13,20,30,40'
   pcs_max_hvg: 
       label: "pcs_max_hvg -- max number of principal components to visualize"
       value: 70

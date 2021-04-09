@@ -109,14 +109,12 @@ extract_meta_data <- function(cell.names=NULL, group_id="library", meta_cols=NUL
 read_meta_basic <- function(sample_folders=NULL, cell.names=NULL) {
   meta.basic <- data.frame(matrix(NA, nrow = length(cell.names), ncol = 2))
   rownames(meta.basic) <- cell.names
-  colnames(meta.basic) <- c("sample","library")
+  colnames(meta.basic) <- c("combined_id","library")
   for (s in 1:length(sample_folders)){
     data <- sample_folders[s]
     match <- grepl(data, rownames(meta.basic))
     if(any(match)) {
-      meta.basic[match,]$sample = data
-      meta.basic[match,]$library = paste0("sample_",s)
-      
+      meta.basic[match,] = data
     } else {
       stop("samples names are not part of cell names. Check meta data!")
     }

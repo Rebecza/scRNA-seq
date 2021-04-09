@@ -1,5 +1,5 @@
 ---
-title: "SORT-seq dataset with velocity preparations"
+title: "kb scRNA-seq pre-processing with velocity preparations"
 params:
   method: 
     label: "method -- experimental method"
@@ -267,8 +267,6 @@ if (params$meta_data != "" && params$meta_type == "sample") {
                                group_id = meta_group_id,
                                samples=all_samples)
                               
-   pheno_matched <-  phenodata
-   pheno_len <- ncol(phenodata)
 
   
 } else if (params$meta_data != "" && params$meta_type == "cell") {
@@ -277,8 +275,6 @@ if (params$meta_data != "" && params$meta_type == "sample") {
                                group_id = meta_group_id,
                                samples=all_samples,
                                sample_meta=FALSE)
-   pheno_matched <-  phenodata
-   pheno_len <- ncol(phenodata) 
 
    
    
@@ -286,21 +282,16 @@ if (params$meta_data != "" && params$meta_type == "sample") {
 } else if(params$extract_meta_columns != "" && params$meta_type == "names" ) {
   # Unique combined ID per plate, for visualization purposes
   extract_meta_columns = as.vector(strsplit(params$extract_meta_columns,",")[[1]])
-  phenodata_all <- extract_meta_data(cell.names = colnames(data.df),
+  phenodata <- extract_meta_data(cell.names = colnames(data.df),
                                  group_id = meta_group_id, 
                                  meta_cols= extract_meta_columns)
-  phenodata <- phenodata_all[[1]]
-  pheno_matched <- phenodata_all[[2]]
-  pheno_len <- length(pheno_matched)
 
   
 } else {
   phenodata <- read_meta_basic(cell.names = colnames(data.df), sample_folders=all_samples)
-  pheno_len <- 2
-  pheno_matched <-  phenodata
-  
+
 }
-if (!identical(rownames(pheno_matched), colnames(spliced.data.df))) {
+if (!identical(rownames(phenodata), colnames(spliced.data.df))) {
      stop("meta-data row names and cell names are different!")
 }
 print("Writing meta data to file")
@@ -571,7 +562,7 @@ seuset <-
   CreateSeuratObject(
   counts = counts(sce_endo),
   assay = "sf",
-  meta.data = as.data.frame(colData(sce_endo)[, 1:(pheno_len + 1)])
+  meta.data = as.data.frame(colData(sce_endo)[c(colnames(phenodata),"is_cell_control")])
   )
 ```
 

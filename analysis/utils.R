@@ -102,7 +102,7 @@ extract_meta_data <- function(cell.names=NULL, group_id="library", meta_cols=NUL
   pheno_matched <- phenodata[rownames(phenodata) %in% cell.names,]
   # Matching phenodata with the dataset ordering
   pheno_ordered <- pheno_matched[match(cell.names,rownames(pheno_matched)),]
-  return(list(pheno_ordered, pheno_matched))
+  return(pheno_ordered)
 }
 
 #Add basic meta data based on sample

@@ -180,7 +180,7 @@ genes_use <- rownames(sce_endo)
 sce_us <-
   SingleCellExperiment(
   assays = list(counts = unspliced.data.df),
-  colData = pheno_matched,
+  colData = phenodata,
   rowData = rownames(unspliced.data.df)
   )
 control_features_us <- vector("list", 0)

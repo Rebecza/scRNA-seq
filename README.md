@@ -1,7 +1,7 @@
 # scRNA-seq
 From fastq to preprocessed counttable (in-house CELSeq2 method), with Kallisto | Bustools workflow.
 
-![FlowChart_scRNA-seqPreprocessing_sm](https://user-images.githubusercontent.com/56538023/114434366-367cab00-9bc3-11eb-89cd-213c2b666655.png)
+![FlowChart_scRNA-seqPreprocessing_sm](https://user-images.githubusercontent.com/56538023/114436014-25349e00-9bc5-11eb-92b9-df66320f8b19.png)
 
 
 # Running the alignment needed for RNA Velocity #

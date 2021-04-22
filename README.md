@@ -5,6 +5,12 @@ From fastq to preprocessed counttable (in-house CELSeq2 method), with Kallisto |
 
 
 # Running the alignment needed for RNA Velocity #
+
+
+**The indexing and alignment for RNA Velocity can be performed with [the scRNA-seq workflow of seq2science](https://vanheeringen-lab.github.io/seq2science/content/workflows/scrna_seq.html).**
+
+Alternatively, by hand: 
+
 Using the kb-wrapper in a conda environment. All paths lead to the files where I have stored them, copy those and change path accordingly.
 
 Install conda environment with the following file: kb_scrna.yaml. By running:

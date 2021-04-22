@@ -4,27 +4,6 @@ output: pdf_document
 ---
 
 ```
-
-# Raw log2-transformation
-To compare with other normalization methods.
-
-```{r raw log2-transformation}
-assay(sce_endo, "logcounts_raw") <- log2(counts(sce_endo) + 1)
-# plotReducedDim and plotPCA will do the same, with plotPCA you leave out the
-# use_dimred="PCA" argument.
-tmp <- runPCA(sce_endo, 
-              ncomponents = 50, 
-              exprs_values = "logcounts_raw")
-# plot PCA after log2 transformation
-plotPCA(tmp,
-        colour_by = params$lab_col,
-        size_by = "total_features_by_counts")
-# One can also run tSNE in similar ways with Scater.
-rm(tmp)
-# The logcounts_raw is not enough to account for the technical factors between
-# the cells.
-```
-
 ## Normalization in Seurat
 Make the seurat object, 'seuset'. In this step you could filter the cells
 again, these however already have been filtered before in 'table clean-up',
@@ -32,21 +11,21 @@ where the genes were taken that have >2 cells that have an expression >1.
 
 ```{r}
 # looking into the dataset
-VlnPlot(
+feat_pl <- VlnPlot(
     object = seuset,
     features = c("nFeature_sf"),
     group.by = params$lab_col
-)
-VlnPlot(
+) + ggtitle("Features before normalization")
+count_pl <- VlnPlot(
     object = seuset,
     features = c("nCount_sf"),
     group.by = params$lab_col
-)
-FeatureScatter(
+) + ggtitle("Counts before normalization")
+feat_scatter <- FeatureScatter(
     object = seuset,
     feature1 = "nCount_sf",
     feature2 = "nFeature_sf"
-)
+) + ggtitle("Feature scatter before normalization")
 ```
 
 ```{r}
@@ -61,27 +40,40 @@ seuset <- NormalizeData(
     scale.factor = 10000
 )
 # looking into the dataset
-VlnPlot(
+feat_pl_norm <- VlnPlot(
     object = seuset,
     features = c("nFeature_sf"),
     group.by = params$lab_col
-)
-VlnPlot(
+) + ggtitle("Features after normalization")
+count_pl_norm <- VlnPlot(
     object = seuset,
     features = c("nCount_sf"),
     group.by = params$lab_col
-)
-#VlnPlot(
-#  object = seuset,
-#    features = explore_violin,
-#    group.by = params$lab_col
-#)
-FeatureScatter(
+) + ggtitle("Counts after normalization")
+feat_scatter_norm <- FeatureScatter(
     object = seuset,
     feature1 = "nCount_sf",
     feature2 = "nFeature_sf"
-)
+) + ggtitle("Feature scatter after normalization")
 saveRDS(seuset, paste(params$resultsdir,"seuset_qc+norm.rds",sep="/"))
+```
+
+```{r}
+## Visualizing metrics before and after normalization
+pdf(
+  paste(
+  params$resultsdir,
+  "QCmetrics_before-after_normalization.pdf",
+  sep = "/"
+  ),
+  width = 10, height = 15)
+multiplot(feat_pl, count_pl, feat_scatter, 
+          feat_pl_norm, count_pl_norm, feat_scatter_norm, cols = 2)
+dev.off()
+
+multiplot(feat_pl, feat_pl_norm, cols = 1)
+multiplot(count_pl, feat_pl_norm, cols = 1)
+multiplot(feat_scatter, feat_scatter_norm, cols = 1)
 ```
 
 #### Check confounders before & after normalization
@@ -165,7 +157,7 @@ p1 <- plotPCA(tmp,
 p2 <- plotPCA(sce_seunorm,
         colour_by = params$lab_col,
         size_by = "total_features_by_counts")
-multiplot(p1, p2, cols = 2)
+multiplot(p1, p2, cols = 1)
 ```
 
 
@@ -213,15 +205,15 @@ sce_usmatch <- calculateQCMetrics(
 # Arbitrary thresholds:
 # Looking at the total number of RNA molecules per sample
 # UMI counts were used for this experiment
-hist(sce_us$total_counts, breaks = 100)
+hist(sce_us$total_counts, breaks = 100, xlab = "Total amount of counts", main = "Histogram before filtering")
 abline(v = params$total_counts_tresh, col = "red")
 # Looking at the amount of unique genes per sample
 # This is the amount with ERCC included.
-hist(sce_us$total_features_by_counts, breaks = 100)
+hist(sce_us$total_features_by_counts, breaks = 100, xlab = "Total amount of features", main = "Histogram before filtering")
 abline(v= params$total_feat_tresh, col = "red")
-hist(sce_usmatch$total_counts, breaks = 100)
+hist(sce_usmatch$total_counts, breaks = 100, xlab = "Total amount of counts", main = "Histogram after filtering")
 abline(v = params$total_counts_tresh, col = "red")
-hist(sce_usmatch$total_features_by_counts, breaks = 100)
+hist(sce_usmatch$total_features_by_counts, breaks = 100, xlab = "Total amount of features", main = "Histogram after filtering")
 abline(v= params$total_feat_tresh, col = "red")
 pdf(
   paste(
@@ -231,13 +223,13 @@ pdf(
   )
   )
 par(mfrow=c(2,2))
-hist(sce_us$total_counts, breaks = 100)
+hist(sce_us$total_counts, breaks = 100, xlab = "Total amount of counts", main = "Histogram before filtering")
 abline(v = params$total_counts_tresh, col = "red")
-hist(sce_us$total_features_by_counts, breaks = 100)
+hist(sce_us$total_features_by_counts, breaks = 100, xlab = "Total amount of features", main = "Histogram before filtering")
 abline(v= params$total_feat_tresh, col = "red")
-hist(sce_usmatch$total_counts, breaks = 100)
+hist(sce_usmatch$total_counts, breaks = 100, xlab = "Total amount of counts", main = "Histogram after filtering")
 abline(v = params$total_counts_tresh, col = "red")
-hist(sce_usmatch$total_features_by_counts, breaks = 100)
+hist(sce_usmatch$total_features_by_counts, breaks = 100, xlab = "Total amount of features", main = "Histogram after filtering")
 abline(v= params$total_feat_tresh, col = "red")
 dev.off()
 ```

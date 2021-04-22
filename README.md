@@ -1,6 +1,6 @@
 # scRNA-seq preprocessing
 
-From fastq to preprocessed counttable (in-house CELSeq2 method), with Kallisto | Bustools workflow.
+From Kallisto | Bustools workflow counttable to preprocessed Seurat object.
 
 ![FlowChart_scRNA-seqPreprocessing_sm](https://user-images.githubusercontent.com/56538023/114436621-d804fc00-9bc5-11eb-8dcf-45433f548aa5.png)
 

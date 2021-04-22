@@ -71,8 +71,8 @@ multiplot(feat_pl, count_pl, feat_scatter,
           feat_pl_norm, count_pl_norm, feat_scatter_norm, cols = 2)
 dev.off()
 
+multiplot(count_pl, count_pl_norm, cols = 1)
 multiplot(feat_pl, feat_pl_norm, cols = 1)
-multiplot(count_pl, feat_pl_norm, cols = 1)
 multiplot(feat_scatter, feat_scatter_norm, cols = 1)
 ```
 

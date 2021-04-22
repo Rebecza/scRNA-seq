@@ -103,9 +103,10 @@ params:
 output:
   html_document:
     df_print: paged
+    code_folding: hide
     toc: yes
     toc_depth: '2'
----
+---    
 ```{r loading libraries, include=FALSE}
 #Custom listings markdown template: https://stackoverflow.com/questions/21402157/colour-for-r-code-chunk-in-listings-package/21468454
 
@@ -136,29 +137,21 @@ library(scran)
 library(RColorBrewer)
 library(plot3D)
 #Defaults
-vars_to_regress_sf = NULL
-vars_to_regress_uf = NULL
 remove_bc = FALSE
 ## Small sanity checks
 if (params$method == "384plate") {
   remove_bc = TRUE
 }
-if (params$vars_to_regress_sf != "") {
-  vars_to_regress_sf = unlist(strsplit(params$vars_to_regress_sf,","))
-}
-if (params$vars_to_regress_uf != "") {
-  vars_to_regress_uf = unlist(strsplit(params$vars_to_regress_uf,","))
-}
+vars_to_regress_sf = as.vector(strsplit(params$vars_to_regress_sf,",")[[1]])
+vars_to_regress_uf = as.vector(strsplit(params$vars_to_regress_uf,",")[[1]])
 ## Unlist parameters ##
-label.vector = unlist(strsplit(params$umap_cols,","))
-# Unique combined ID per plate, for visualization purposes
-extract_meta_columns = unlist(strsplit(params$extract_meta_columns,","))
+label.vector = as.vector(strsplit(params$umap_cols,",")[[1]])
 # Combined columns for plotting in meta data
-meta_group_id = unlist(strsplit(params$meta_group_id,","))
+meta_group_id = as.vector(strsplit(params$meta_group_id,",")[[1]])
 # PCs used for different UMAP representations
-pcs_for_overview = as.integer(unlist(strsplit(params$pcs_for_overview,",")))
+pcs_for_overview = as.vector(strsplit(params$pcs_for_overview,",")[[1]])
 #Checking variability explained by confounding factors
-confounders_to_test = unlist(strsplit(params$confounders_to_test,","))
+confounders_to_test = as.vector(strsplit(params$confounders_to_test,",")[[1]])
 ```
 ```{r writing params to yaml file}
 yaml::write_yaml(params, paste(params$resultsdir,"settings.yaml", sep="/"))
@@ -274,8 +267,6 @@ if (params$meta_data != "" && params$meta_type == "sample") {
                                group_id = meta_group_id,
                                samples=all_samples)
                               
-   pheno_matched <-  phenodata
-   pheno_len <- ncol(phenodata)
 
   
 } else if (params$meta_data != "" && params$meta_type == "cell") {
@@ -284,28 +275,23 @@ if (params$meta_data != "" && params$meta_type == "sample") {
                                group_id = meta_group_id,
                                samples=all_samples,
                                sample_meta=FALSE)
-   pheno_matched <-  phenodata
-   pheno_len <- ncol(phenodata) 
 
    
    
    
 } else if(params$extract_meta_columns != "" && params$meta_type == "names" ) {
-  phenodata_all <- extract_meta_data(cell.names = colnames(data.df),
+  # Unique combined ID per plate, for visualization purposes
+  extract_meta_columns = as.vector(strsplit(params$extract_meta_columns,",")[[1]])
+  phenodata <- extract_meta_data(cell.names = colnames(data.df),
                                  group_id = meta_group_id, 
                                  meta_cols= extract_meta_columns)
-  phenodata <- phenodata_all[[1]]
-  pheno_matched <- phenodata_all[[2]]
-  pheno_len <- length(pheno_matched)
 
   
 } else {
   phenodata <- read_meta_basic(cell.names = colnames(data.df), sample_folders=all_samples)
-  pheno_len <- 2
-  pheno_matched <-  phenodata
-  
+
 }
-if (!identical(rownames(pheno_matched), colnames(spliced.data.df))) {
+if (!identical(rownames(phenodata), colnames(spliced.data.df))) {
      stop("meta-data row names and cell names are different!")
 }
 print("Writing meta data to file")
@@ -576,7 +562,7 @@ seuset <-
   CreateSeuratObject(
   counts = counts(sce_endo),
   assay = "sf",
-  meta.data = as.data.frame(colData(sce_endo)[, 1:(pheno_len + 1)])
+  meta.data = as.data.frame(colData(sce_endo)[c(colnames(phenodata),"is_cell_control")])
   )
 ```
 

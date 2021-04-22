@@ -7,13 +7,13 @@ params:
     value: '384plate'
   kb.dir: 
     label: "kb.dir -- directory containing kb-python output"
-    value: /ceph/rimlsfnwi/data/moldevbio/veenstra/snabel/scrna/CMdiff_mon-EB-EHT_d4-26_all_s2s_develop/results/kallistobus/
+    value: /home/user/experiment/results/kallistobus/
   barcode_file: 
     label: "barcode_file -- .tab delimited file with 2-col layout for plate based methods (with DNA barcode and well-id)"
-    value: /ceph/rimlsfnwi/data/moldevbio/veenstra/snabel/scrna/barcode_384.tab
+    value: /home/user/experiment/barcode_384.tab
   mt_genes_file:
     label: "mt_genes_file -- .txt file containing one column with mitchondrial genes"
-    value: /ceph/rimlsfnwi/data/moldevbio/veenstra/snabel/scrna/genomes/genome_addons/MT_genes.txt
+    value: /home/user/experiment/genomes/genome_addons/MT_genes.txt
   meta_data:
     label: "meta_data -- .csv file containing cell meta data. Alternative for extract_meta_columns"
     value: "" #../data/examples/sample_meta_example.csv
@@ -26,7 +26,7 @@ params:
     value:  "genome,spike-in,reporter,method,lineage,timepoint,replicate,library,cell_id"
   resultsdir:
      label: "resultsdir -- output directory for qc files" 
-     value: ../output_EHT_sct
+     value: ../output
   meta_group_id: 
       label: "meta_group_id -- combine meta data fields for plotting, creates variable combined_id (separate multiple values by comma)" 
       value: timepoint,lineage,method

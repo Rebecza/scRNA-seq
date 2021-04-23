@@ -1,41 +1,41 @@
 ---
-title: "SORT-seq dataset with velocity preparations"
+title: "Kb-python scRNA post-processing markdown "
 params:
   method: 
     label: "method -- experimental method"
     choices: ['384plate', 'droplet']
-    value: '384plate'
+    value: ""
   kb.dir: 
-    label: "kb.dir -- directory containing kb-python output"
-    value: /home/user/experiment/results/kallistobus/
+    label: "kb.dir -- path to directory containing kb-python output"
+    value: ""
   barcode_file: 
-    label: "barcode_file -- .tab delimited file with 2-col layout for plate based methods (with DNA barcode and well-id)"
-    value: /home/user/experiment/barcode_384.tab
+    label: "barcode_file -- path to .tab delimited file with 2-col layout for plate based methods (with DNA barcode and well-id)"
+    value: ""
   mt_genes_file:
-    label: "mt_genes_file -- .txt file containing one column with mitchondrial genes"
-    value: /home/user/experiment/genomes/genome_addons/MT_genes.txt
+    label: "mt_genes_file -- path to .txt file containing one column with mitchondrial genes"
+    value: ""
   meta_data:
-    label: "meta_data -- .csv file containing cell meta data. Alternative for extract_meta_columns"
-    value: "" #../data/examples/sample_meta_example.csv
+    label: "meta_data -- path to .csv file containing cell meta data. Alternative for extract_meta_columns"
+    value: "" 
   meta_type:
       label: "meta_data_level -- type of meta data"
       choices: ["sample", "cell","names","default"]
       value: names      
   extract_meta_columns: 
     label: "extract_meta_columns -- extracts meta data from cell names (name fields separated by '_'). Alternative for meta_data."
-    value:  "genome,spike-in,reporter,method,lineage,timepoint,replicate,library,cell_id"
+    value:  ""
   resultsdir:
-     label: "resultsdir -- output directory for qc files" 
-     value: ../output
+     label: "resultsdir -- path to output directory for qc files" 
+     value: ""
   meta_group_id: 
       label: "meta_group_id -- combine meta data fields for plotting, creates variable combined_id (separate multiple values by comma)" 
-      value: timepoint,lineage,method
+      value: ""
   lab_col: 
       label: "lab_col -- meta data field used for QC plot labels (for instance: combined_id)"
       value: library
   umap_cols: 
       label: "umap_cols -- meta data fields used for Seurat's RunUMAP plot labels (separate multiple values by comma)"
-      value: library,timepoint,combined_id
+      value: ""
   confounders_to_test: 
       label: "confounders_to_test -- meta data variables used for confounder testing (separate multiple values by comma)"
       value: library

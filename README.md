@@ -14,6 +14,9 @@ conda install mamba -n base -c conda-forge
 ```
 
 3. Download the newest release or clone this repository.
+```
+git clone https://github.com/Rebecza/scRNA-seq.git
+```
 
 4. Create & activate environment. 
 ```
@@ -21,6 +24,9 @@ cd scRNA-seq/envs
 mamba env create -f kb_scrna_R_seurat3.yaml
 conda activate kb_scrna_R_seurat3
 ```
+
+5. Knit the `kb_seurat_pp.rmd` markdown via your method of choice.
+
 
 
 

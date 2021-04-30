@@ -25,7 +25,7 @@ mamba env create -f kb_scrna_R_seurat3.yaml
 conda activate kb_scrna_R_seurat3
 ```
 
-5. Open the `kb_seurat_pp.rmd` markdown via RStudio -> Knit. 
+5. Open the `kb_seurat_pp.rmd` markdown via RStudio -> Knit<br/>
  **Note**: RStudio should be run from within the conda environment. 
 
 

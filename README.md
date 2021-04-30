@@ -13,7 +13,7 @@ From Kallisto | Bustools workflow counttable to preprocessed Seurat object.
 conda install mamba -n base -c conda-forge
 ```
 
-3. Download the newest release or clone this repository.
+3. Download the newest release of scRNA-seq or clone the repository.
 ```
 git clone https://github.com/Rebecza/scRNA-seq.git
 ```
@@ -26,7 +26,8 @@ conda activate kb_scrna_R_seurat3
 ```
 
 5. Open the `kb_seurat_pp.rmd` markdown via RStudio -> Knit. 
-   
+ **Note**: RStudio should be run from within the conda environment. 
+
 
 
 

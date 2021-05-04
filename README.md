@@ -31,8 +31,9 @@ mamba install -n kb_scrna_R_seurat3 r:rstudio
 ```
 **Note**: RStudio should be started from within the conda environment. 
 
-6. Open the `kb_seurat_pp.rmd` markdown via RStudio -> Fill parameters -> Knit<br/>
-
+6. Running
+- RStudio: Open `kb_seurat_pp.rmd` -> Fill parameters -> Knit<br/>
+- Use `rmarkdown::render('kb_seurat_pp.rmd`, params(.....)) to run from command-line 
  
 
 

@@ -1,4 +1,4 @@
-name: kb_seurat_pp
+name: kb_scrna_R_seurat3
 channels:
   - r
   - conda-forge

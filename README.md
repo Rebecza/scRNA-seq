@@ -27,7 +27,7 @@ conda activate kb_scrna_R_seurat3
 
 5. Install RStudio (optional)
 ```
-mamba install -n kb_scrna_R_seurat3 r:rstudio
+mamba install -n kb_scrna_R_seurat3 r::rstudio
 ```
 **Note**: RStudio should be started from within the conda environment. 
 
